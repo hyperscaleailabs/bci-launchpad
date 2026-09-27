@@ -17,6 +17,7 @@ mlruns/
 mlartifacts/
 mlflow.db
 .dagster_home/
-dagster_home/
+dagster_home/*
+!dagster_home/dagster.yaml
 *.log
 /tmp/
