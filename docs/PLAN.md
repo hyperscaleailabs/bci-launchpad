@@ -23,6 +23,14 @@ mlflow 3.16 · jax 0.11 (notebooks only) · pydantic 2 · structlog.
 | 4 | 13: README, CLAUDE.md, architecture docs | `docs` | 3 |
 | 5 | acceptance verification | lead | all |
 
+### Status
+
+| Wave | Status |
+|------|--------|
+| 0–3 | done — package, data/model/training/evaluation, MLflow + Ray + DDP, active learning + serving, Dagster assets, scripts, Makefile, infra, CI |
+| 4 | notebooks 01–04, 06–13 done; 00 and 05 in progress · README.md + CLAUDE.md done (`docs`) |
+| 5 | acceptance verification + hardening in progress (lead / `hardening`) |
+
 Rules for every agent:
 
 * Only edit files in your ownership list. Need a change elsewhere? Report it.
