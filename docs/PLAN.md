@@ -28,8 +28,8 @@ mlflow 3.16 · jax 0.11 (notebooks only) · pydantic 2 · structlog.
 | Wave | Status |
 |------|--------|
 | 0–3 | done — package, data/model/training/evaluation, MLflow + Ray + DDP, active learning + serving, Dagster assets, scripts, Makefile, infra, CI |
-| 4 | notebooks 01–04, 06–13 done; 00 and 05 in progress · README.md + CLAUDE.md done (`docs`) |
-| 5 | acceptance verification + hardening in progress (lead / `hardening`) |
+| 4 | done — notebooks 00–13 (executed outputs committed), README.md, CLAUDE.md |
+| 5 | done — hardening fixes; acceptance verified from a fresh clone (see below) |
 
 Rules for every agent:
 
@@ -165,5 +165,14 @@ Dagster assets (dynamic partitions by round, e.g. `round_001`): `candidate_pool`
 
 ## Acceptance checklist (handoff §27)
 
-Tracked by the lead in the final wave; each item must be demonstrated by a
-command, not asserted.
+Verified by the lead from a fresh clone of the public repo (2026-09-27):
+
+- `uv sync` ✓ · `make test` ✓ (105 passed, CPU-only) · `make test-integration` ✓ (11 passed)
+- `make closed-loop ROUNDS=2` ✓ — 2 DDP workers per round (distinct pids), rounds
+  `round_001`/`round_002` written read-only with parent-hash chain and selection provenance
+- MLflow: params, `dataset_id`, metrics, checkpoint, evaluation artifacts per run ✓
+- Round 0 fails its gate and stays `candidate`; round 1 is promoted to `production` ✓
+- `make serve` + `scripts/query_model.py`: `/health`, `/model-info`, `/predict`, `/predict_batch` ✓
+- Bit-exact checkpoint resume (single-process and 2-worker DDP) ✓ — `make failure-demo`
+- Dagster lineage via `dagster definitions validate` + GraphQL asset graph ✓
+- `make notebooks`: all 14 notebooks execute ✓ · GitHub Actions CI green ✓
