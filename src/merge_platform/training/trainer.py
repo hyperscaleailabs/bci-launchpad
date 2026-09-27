@@ -78,6 +78,10 @@ class SimulatedWorkerFailure(RuntimeError):
         self.epoch = epoch
         self.checkpoint_path = checkpoint_path
 
+    def __reduce__(self) -> tuple[type, tuple[int, Path | None]]:
+        # picklable across process boundaries (Ray ships worker exceptions to the driver)
+        return (type(self), (self.epoch, self.checkpoint_path))
+
 
 @dataclass
 class TrainResult:

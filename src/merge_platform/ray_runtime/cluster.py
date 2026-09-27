@@ -26,8 +26,34 @@ _RUNTIME_ENV: dict[str, Any] = {
     "env_vars": {
         "PYTHONPATH": str(REPO_ROOT / "src"),
         "MLFLOW_DISABLE_AGENT_HINT": "1",
+        # Ray Train V2's controller polls workers every 2 s by default and a
+        # worker's ``ray.train.report`` waits for that poll, which puts a ~2 s
+        # floor under every epoch of our small models. Poll faster.
+        "RAY_TRAIN_HEALTH_CHECK_INTERVAL_S": os.environ.get(
+            "RAY_TRAIN_HEALTH_CHECK_INTERVAL_S", "0.2"
+        ),
     }
 }
+
+
+def _disable_uv_run_hook() -> None:
+    """Stop Ray from rebuilding a fresh uv venv for every worker under ``uv run``.
+
+    Ray >= 2.4x detects a driver started via ``uv run`` and, by default,
+    packages the working dir and re-runs ``uv`` in each worker's runtime env
+    (~10 s per new worker process, plus a copy of the repo in /tmp). Workers
+    here share the driver's interpreter/venv, so that is pure overhead. An
+    explicit ``RAY_ENABLE_UV_RUN_RUNTIME_ENV`` in the environment is respected.
+    """
+    if "RAY_ENABLE_UV_RUN_RUNTIME_ENV" in os.environ:
+        return
+    os.environ["RAY_ENABLE_UV_RUN_RUNTIME_ENV"] = "0"
+    try:
+        from ray._private import ray_constants
+
+        ray_constants.RAY_ENABLE_UV_RUN_RUNTIME_ENV = False  # read at import time
+    except (ImportError, AttributeError):  # pragma: no cover - future Ray versions
+        pass
 
 
 def ensure_ray(
@@ -39,6 +65,7 @@ def ensure_ray(
 ) -> dict[str, Any]:
     """Initialise Ray once per process (idempotent) and return cluster resources."""
     if not ray.is_initialized():
+        _disable_uv_run_hook()
         address = address or os.environ.get("RAY_ADDRESS") or None
         kwargs: dict[str, Any] = {
             "namespace": namespace,
