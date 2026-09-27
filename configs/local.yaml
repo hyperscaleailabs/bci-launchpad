@@ -1,0 +1,59 @@
+# Demo defaults (see docs/PLAN.md "Config"). Runs in seconds on a laptop CPU.
+# Select another file with MERGE_CONFIG=configs/distributed.yaml (or `distributed`).
+seed: 0
+
+paths:
+  data_dir: data
+  reports_dir: reports
+  artifacts_dir: artifacts
+
+data:
+  n_features: 32
+  pool_size: 100000
+  initial_observations: 500
+  batch_size_per_round: 100
+  pool_seed: 0
+
+model:
+  hidden_dims: [256, 256, 128]
+  dropout: 0.1
+
+training:
+  epochs: 30
+  batch_size: 64            # per worker; global batch = batch_size * num_workers under DDP
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  val_fraction: 0.2
+  val_strategy: hash        # stable per-experiment split (fair cross-round comparison);
+                            # or newest_round (prospective hold-out) / random
+  deterministic: true
+  checkpoint_every: 1
+  loss: mse                 # or gaussian_nll (adds a variance head)
+  device: auto              # auto -> cuda if available else cpu (mps only if explicit)
+
+distributed:
+  num_workers: 2
+  use_gpu: auto
+  cpus_per_worker: 1
+
+evaluation:
+  max_rmse: 0.35            # on standardized responses
+  min_improvement_vs_baseline: 0.02
+  bootstrap_samples: 1000
+  mc_samples: 30
+
+active_learning:
+  beta: 1.0
+  max_cost: null
+  feature_bounds: [-3.0, 3.0]
+
+tracking:
+  tracking_uri: "sqlite:///mlflow.db"
+  experiment: merge-closed-loop
+  registered_model: merge-surrogate
+
+serve:
+  num_replicas: 1
+  max_batch_size: 64
+  batch_wait_timeout_s: 0.01
+  port: 8000
