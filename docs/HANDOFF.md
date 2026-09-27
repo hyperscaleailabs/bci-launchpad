@@ -69,7 +69,7 @@ The purpose is to demonstrate infrastructure supporting `data → model → deci
 # 3. Repository layout
 
 ```text
-merge-research-platform/
+bci-research-platform/
 ├── README.md  CLAUDE.md  pyproject.toml  uv.lock  Makefile  docker-compose.yml  .env.example  .gitignore
 ├── configs/ {local,distributed,gpu}.yaml
 ├── src/bci_platform/

@@ -1,7 +1,7 @@
 # Helm values sketch for the Dagster control plane (chart: dagster/dagster).
 #
 #   helm repo add dagster https://dagster-io.github.io/helm
-#   helm upgrade --install dagster dagster/dagster -n merge -f infra/k8s/dagster-values.yaml
+#   helm upgrade --install dagster dagster/dagster -n bci -f infra/k8s/dagster-values.yaml
 #
 # Dagster owns *what* runs and lineage (assets, partitions per round, retries,
 # schedules/sensors). It does not schedule GPUs: every expensive step calls the
@@ -28,28 +28,28 @@ dagster-user-deployments:
         - "/app"
       port: 3030
       # Shared env (anchored here, reused by webserver/daemon below).
-      env: &merge-env
-        - {name: RAY_ADDRESS, value: "ray://merge-ray-head-svc.merge.svc.cluster.local:10001"}
-        - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.merge.svc.cluster.local:5000"}
-        - {name: MERGE_CONFIG, value: "configs/distributed.yaml"}
+      env: &bci-env
+        - {name: RAY_ADDRESS, value: "ray://bci-ray-head-svc.bci.svc.cluster.local:10001"}
+        - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.bci.svc.cluster.local:5000"}
+        - {name: BCI_CONFIG, value: "configs/distributed.yaml"}
       resources:
         requests: {cpu: 250m, memory: 1Gi}
         limits: {cpu: "1", memory: 2Gi}
       # Control plane on stable, non-GPU, non-spot nodes.
       nodeSelector:
-        merge.io/pool: system
+        bci.io/pool: system
 
 dagsterWebserver:
   replicaCount: 1
-  env: *merge-env
+  env: *bci-env
   nodeSelector:
-    merge.io/pool: system
+    bci.io/pool: system
 
 dagsterDaemon:
   enabled: true
-  env: *merge-env
+  env: *bci-env
   nodeSelector:
-    merge.io/pool: system
+    bci.io/pool: system
   runCoordinator:
     enabled: true
     type: QueuedRunCoordinator
@@ -58,7 +58,7 @@ dagsterDaemon:
         maxConcurrentRuns: 4
         # One closed-loop round at a time: rounds are sequential by design.
         tagConcurrencyLimits:
-          - key: merge/closed-loop
+          - key: bci/closed-loop
             limit: 1
 
 # Each run gets its own lightweight pod; it is a *Ray client*, not a worker —
@@ -68,14 +68,14 @@ runLauncher:
   config:
     k8sRunLauncher:
       envVars:
-        - "RAY_ADDRESS=ray://merge-ray-head-svc.merge.svc.cluster.local:10001"
-        - "MLFLOW_TRACKING_URI=http://mlflow.merge.svc.cluster.local:5000"
-        - "MERGE_CONFIG=configs/distributed.yaml"
+        - "RAY_ADDRESS=ray://bci-ray-head-svc.bci.svc.cluster.local:10001"
+        - "MLFLOW_TRACKING_URI=http://mlflow.bci.svc.cluster.local:5000"
+        - "BCI_CONFIG=configs/distributed.yaml"
       # Run pods need the same shared store as the Ray workers.
       volumes:
         - name: shared
           persistentVolumeClaim:
-            claimName: merge-shared
+            claimName: bci-shared
       volumeMounts:
         - {name: shared, mountPath: /app/data, subPath: data}
         - {name: shared, mountPath: /app/reports, subPath: reports}
@@ -87,13 +87,13 @@ runLauncher:
             limits: {cpu: "1", memory: 2Gi}
         podSpecConfig:
           nodeSelector:
-            merge.io/pool: system
+            bci.io/pool: system
 
 # Postgres replaces the SQLite storage used by docker compose. Use a managed
 # instance (Cloud SQL / RDS) in production: postgresql.enabled=false + external host.
 postgresql:
   enabled: false
-  postgresqlHost: "merge-postgres.merge.svc.cluster.local"
+  postgresqlHost: "bci-postgres.bci.svc.cluster.local"
   postgresqlUsername: dagster
   postgresqlDatabase: dagster
   service:
@@ -105,7 +105,7 @@ computeLogManager:
   type: S3ComputeLogManager
   config:
     s3ComputeLogManager:
-      bucket: your-org-merge-dagster-logs
+      bucket: your-org-bci-dagster-logs
       prefix: compute-logs
 
 telemetry:

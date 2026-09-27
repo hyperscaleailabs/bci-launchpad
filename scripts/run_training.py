@@ -55,7 +55,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument(
-        "--config", default=None, help="config file (default: $MERGE_CONFIG or configs/local.yaml)"
+        "--config", default=None, help="config file (default: $BCI_CONFIG or configs/local.yaml)"
     )
     p.add_argument(
         "--round", type=int, default=None, help="train on rounds 0..ROUND (default: latest)"

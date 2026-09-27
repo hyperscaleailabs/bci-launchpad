@@ -44,7 +44,7 @@ bootstrap_job = define_asset_job(
     selection=AssetSelection.assets(candidate_pool, observed_experiments),
     partitions_def=rounds_partitions,
     description="Create the candidate pool and the initial random design (round_000).",
-    tags={"merge/pipeline": "bootstrap"},
+    tags={"bci/pipeline": "bootstrap"},
 )
 
 closed_loop_round_job = define_asset_job(
@@ -55,7 +55,7 @@ closed_loop_round_job = define_asset_job(
         "One closed-loop round: data → Ray Train DDP → evaluation → gated registry → "
         "Ray batch inference → active learning → oracle → next immutable round."
     ),
-    tags={"merge/pipeline": "closed_loop"},
+    tags={"bci/pipeline": "closed_loop"},
 )
 
 retrain_job = define_asset_job(
@@ -65,7 +65,7 @@ retrain_job = define_asset_job(
     ),
     partitions_def=rounds_partitions,
     description="Retrain + re-evaluate + gate the model of a round (no new experiments).",
-    tags={"merge/pipeline": "retrain"},
+    tags={"bci/pipeline": "retrain"},
 )
 
 JOBS = [bootstrap_job, closed_loop_round_job, retrain_job]

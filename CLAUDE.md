@@ -53,7 +53,7 @@ uv run pytest tests/unit/test_evaluation.py -k gates        # single test
 - Python 3.12, full type hints, ruff (line length 100), mypy (`make typecheck`), docstrings that
   explain *why*.
 - Config: typed pydantic `PlatformConfig` in `config.py`, loaded by `load_config(path|name|None)`
-  (`$MERGE_CONFIG` or `configs/local.yaml`; YAML supports `extends:`). Add a field to the pydantic
+  (`$BCI_CONFIG` or `configs/local.yaml`; YAML supports `extends:`). Add a field to the pydantic
   section *and* `configs/local.yaml`; never read raw YAML/dicts elsewhere.
 - Logging: `from bci_platform.logging import get_logger, bound_ids`;
   `log = get_logger(__name__)`; event names are dotted (`"training.epoch_end"`) with kwargs.

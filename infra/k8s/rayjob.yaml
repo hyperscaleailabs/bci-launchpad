@@ -1,7 +1,7 @@
 # KubeRay RayJob: one-shot distributed training on an ephemeral Ray cluster.
 #
-#   kubectl -n merge apply -f infra/k8s/rayjob.yaml
-#   kubectl -n merge get rayjob merge-train -w
+#   kubectl -n bci apply -f infra/k8s/rayjob.yaml
+#   kubectl -n bci get rayjob bci-train -w
 #
 # The entrypoint is the same script used locally (`make train`); inside it,
 # bci_platform.training.distributed.train_distributed() builds a Ray Train
@@ -11,14 +11,14 @@
 # Alternative: to submit onto the long-lived cluster from raycluster.yaml
 # instead of creating one, replace `rayClusterSpec` with
 #   clusterSelector:
-#     ray.io/cluster: merge-ray
+#     ray.io/cluster: bci-ray
 # In the platform, Dagster usually submits via the Ray client / Job API; a
 # RayJob is the right shape for ad-hoc sweeps and CI-triggered retraining.
 apiVersion: ray.io/v1
 kind: RayJob
 metadata:
-  name: merge-train
-  namespace: merge
+  name: bci-train
+  namespace: bci
   labels:
     app.kubernetes.io/part-of: bci-platform
 spec:
@@ -27,8 +27,8 @@ spec:
   # venv), so nothing is uploaded at submit time.
   runtimeEnvYAML: |
     env_vars:
-      MERGE_CONFIG: configs/distributed.yaml
-      MLFLOW_TRACKING_URI: http://mlflow.merge.svc:5000
+      BCI_CONFIG: configs/distributed.yaml
+      MLFLOW_TRACKING_URI: http://mlflow.bci.svc:5000
   # K8sJobMode: a submitter pod runs `ray job submit` and tails logs.
   submissionMode: K8sJobMode
   # Tear the cluster down when the job ends; keep it 10 min for log inspection.
@@ -49,7 +49,7 @@ spec:
       template:
         spec:
           nodeSelector:
-            merge.io/pool: system
+            bci.io/pool: system
           containers:
             - name: ray-head
               image: ghcr.io/your-org/bci-platform:0.1.0
@@ -68,7 +68,7 @@ spec:
           volumes:
             - name: shared
               persistentVolumeClaim:
-                claimName: merge-shared
+                claimName: bci-shared
     workerGroupSpecs:
       # configs/distributed.yaml -> distributed.num_workers: 2 (CPU DDP).
       # For GPU DDP use configs/gpu.yaml and a group like the `gpu` group in
@@ -82,7 +82,7 @@ spec:
         template:
           spec:
             nodeSelector:
-              merge.io/pool: cpu
+              bci.io/pool: cpu
             containers:
               - name: ray-worker
                 image: ghcr.io/your-org/bci-platform:0.1.0
@@ -99,6 +99,6 @@ spec:
             volumes:
               - name: shared
                 persistentVolumeClaim:
-                  claimName: merge-shared
+                  claimName: bci-shared
               - name: dshm
                 emptyDir: {medium: Memory, sizeLimit: 2Gi}

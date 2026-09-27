@@ -46,7 +46,7 @@ import os, sys, time, json, shutil, tempfile, warnings
 from pathlib import Path
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
-os.environ.setdefault("MERGE_LOG_LEVEL", "WARNING")   # keep structlog output out of the notebook
+os.environ.setdefault("BCI_LOG_LEVEL", "WARNING")   # keep structlog output out of the notebook
 warnings.filterwarnings("ignore", category=UserWarning)
 
 WORK = Path(tempfile.mkdtemp(prefix="{prefix}_"))       # every artifact of this notebook lives here

@@ -60,7 +60,7 @@ orchestration/   thin Dagster assets/resources calling the above       (dagster)
 ### Config — `bci_platform.config` (owned by `core-ml`)
 
 `PlatformConfig` (pydantic) loaded by `load_config(path | None)` from
-`configs/{local,distributed,gpu}.yaml`, env var `MERGE_CONFIG` selects the file.
+`configs/{local,distributed,gpu}.yaml`, env var `BCI_CONFIG` selects the file.
 Sections:
 
 ```yaml
@@ -75,8 +75,8 @@ distributed: {num_workers: 2, use_gpu: auto, cpus_per_worker: 1}
 evaluation: {max_rmse: 0.35, min_improvement_vs_baseline: 0.02,
              bootstrap_samples: 1000, mc_samples: 30}
 active_learning: {beta: 1.0, max_cost: null, feature_bounds: [-3.0, 3.0]}
-tracking: {tracking_uri: "sqlite:///mlflow.db", experiment: merge-closed-loop,
-           registered_model: merge-surrogate}
+tracking: {tracking_uri: "sqlite:///mlflow.db", experiment: bci-closed-loop,
+           registered_model: bci-surrogate}
 serve: {num_replicas: 1, max_batch_size: 64, batch_wait_timeout_s: 0.01, port: 8000}
 ```
 

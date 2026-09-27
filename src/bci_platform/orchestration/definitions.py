@@ -1,7 +1,7 @@
 """Dagster code location: ``dagster dev -m bci_platform.orchestration.definitions``.
 
 `build_definitions` wires assets, jobs, sensors, schedules and resources;
-``defs`` is the default instance (config from ``$MERGE_CONFIG`` or
+``defs`` is the default instance (config from ``$BCI_CONFIG`` or
 ``configs/local.yaml``, Ray from ``$RAY_ADDRESS`` or a local cluster, MLflow
 from ``$MLFLOW_TRACKING_URI`` or the config). Tests and scripts call
 `build_definitions` with explicit resources instead — dependency injection

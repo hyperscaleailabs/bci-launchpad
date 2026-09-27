@@ -58,7 +58,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--rounds", type=int, default=3, help="closed-loop iterations (default 3; 0 with --fresh)"
     )
     p.add_argument(
-        "--config", default=None, help="config file/name (default: $MERGE_CONFIG or local)"
+        "--config", default=None, help="config file/name (default: $BCI_CONFIG or local)"
     )
     p.add_argument("--fresh", action="store_true", help="wipe generated state first")
     p.add_argument("--workers", type=int, default=None, help="DDP workers (default: config)")
@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             if not store.exists(0) or not bootstrapped:
                 print("bootstrap: candidate_pool + observed_experiments[round_000]")
-                run_bootstrap(defs, instance, tags={"merge/trigger": "run_closed_loop"})
+                run_bootstrap(defs, instance, tags={"bci/trigger": "run_closed_loop"})
             start = store.latest_round_id()
             assert start is not None
             print(
@@ -222,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
             for r in range(start, start + args.rounds):
                 t0 = time.perf_counter()
                 print(f"\n>>> materializing closed_loop_round_job[{round_key(r)}] ...", flush=True)
-                result = run_round(defs, instance, r, tags={"merge/trigger": "run_closed_loop"})
+                result = run_round(defs, instance, r, tags={"bci/trigger": "run_closed_loop"})
                 rows.append(_row(r, result, time.perf_counter() - t0))
                 row = rows[-1]
                 print(

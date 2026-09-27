@@ -9,9 +9,9 @@ Usage::
     with bound_ids(round_id=3, dataset_id="..."):   # contextvars; visible to all loggers
         ...
 
-Renderer: ``MERGE_LOG_FORMAT=json`` gives one JSON object per line (for
+Renderer: ``BCI_LOG_FORMAT=json`` gives one JSON object per line (for
 aggregation), anything else (default ``console``) pretty console output.
-``MERGE_LOG_LEVEL`` sets the level (default INFO).
+``BCI_LOG_LEVEL`` sets the level (default INFO).
 """
 
 from __future__ import annotations
@@ -46,8 +46,8 @@ def configure_logging(
     global _configured
     if _configured and not force:
         return
-    fmt = (fmt or os.environ.get("MERGE_LOG_FORMAT", "console")).lower()
-    level_name = (level or os.environ.get("MERGE_LOG_LEVEL", "INFO")).upper()
+    fmt = (fmt or os.environ.get("BCI_LOG_FORMAT", "console")).lower()
+    level_name = (level or os.environ.get("BCI_LOG_LEVEL", "INFO")).upper()
     level_no = getattr(_stdlib_logging, level_name, _stdlib_logging.INFO)
 
     processors: list[Any] = [

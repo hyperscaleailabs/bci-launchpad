@@ -5,7 +5,7 @@ polls the RoundStore; when a new ``data/rounds/round_XXX`` directory appears
 (written by ``new_experimental_results`` or by an external lab process) it
 registers the dynamic partition and requests ``closed_loop_round_job`` for
 it. Enabled, it turns the platform into an autonomous campaign: round r's
-results trigger round r+1, up to ``MERGE_MAX_ROUND`` (default 5) so a demo
+results trigger round r+1, up to ``BCI_MAX_ROUND`` (default 5) so a demo
 cannot run away. ``run_key`` = round key + manifest hash, so a round is
 processed once per content version. Default status: STOPPED (the closed-loop
 script drives rounds itself; enable the sensor in the UI to go event-driven).
@@ -34,7 +34,7 @@ from bci_platform.orchestration.jobs import closed_loop_round_job, retrain_job
 from bci_platform.orchestration.partitions import ROUNDS_PARTITION_NAME, rounds_partitions
 from bci_platform.orchestration.resources import RoundStoreResource
 
-MAX_ROUND_ENV = "MERGE_MAX_ROUND"
+MAX_ROUND_ENV = "BCI_MAX_ROUND"
 DEFAULT_MAX_ROUND = 5
 
 
@@ -61,7 +61,7 @@ def new_round_sensor(
         RunRequest(
             partition_key=round_key(r),
             run_key=f"{round_key(r)}:{store.read_manifest(r).manifest_hash[:12]}",
-            tags={"merge/trigger": "new_round_sensor"},
+            tags={"bci/trigger": "new_round_sensor"},
         )
         for r in fresh
         if r < max_round and round_key(r) not in done
@@ -89,7 +89,7 @@ def nightly_retrain_schedule(
     key = round_key(latest)
     if not context.instance.has_dynamic_partition(ROUNDS_PARTITION_NAME, key):
         return SkipReason(f"partition {key} not registered yet (enable new_round_sensor)")
-    return RunRequest(partition_key=key, tags={"merge/trigger": "nightly_retrain"})
+    return RunRequest(partition_key=key, tags={"bci/trigger": "nightly_retrain"})
 
 
 SENSORS = [new_round_sensor]

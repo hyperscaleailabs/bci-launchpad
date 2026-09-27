@@ -64,7 +64,7 @@ def _worker(rank: int, port: int, out_dir: str, fail_at: int | None) -> None:
         RANK=str(rank),
         LOCAL_RANK=str(rank),
         WORLD_SIZE=str(WORLD_SIZE),
-        MERGE_LOG_LEVEL="WARNING",
+        BCI_LOG_LEVEL="WARNING",
     )
     torch.set_num_threads(1)
     dist.init_process_group("gloo", rank=rank, world_size=WORLD_SIZE)

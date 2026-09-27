@@ -1,7 +1,7 @@
 # KubeRay RayService: the Ray Serve inference app with zero-downtime upgrades.
 #
-#   kubectl -n merge apply -f infra/k8s/rayservice.yaml
-#   kubectl -n merge port-forward svc/merge-serve-serve-svc 8000:8000
+#   kubectl -n bci apply -f infra/k8s/rayservice.yaml
+#   kubectl -n bci port-forward svc/bci-serve-serve-svc 8000:8000
 #   curl localhost:8000/health
 #
 # Contract: the Serve application object is `bci_platform.inference.serve:app`
@@ -17,8 +17,8 @@
 apiVersion: ray.io/v1
 kind: RayService
 metadata:
-  name: merge-serve
-  namespace: merge
+  name: bci-serve
+  namespace: bci
   labels:
     app.kubernetes.io/part-of: bci-platform
 spec:
@@ -28,14 +28,14 @@ spec:
       host: 0.0.0.0
       port: 8000
     applications:
-      - name: merge-surrogate
+      - name: bci-surrogate
         import_path: bci_platform.inference.serve:app
         route_prefix: /
         # Code is baked into the image; no working_dir upload.
         runtime_env:
           env_vars:
-            MERGE_CONFIG: configs/distributed.yaml
-            MLFLOW_TRACKING_URI: http://mlflow.merge.svc:5000
+            BCI_CONFIG: configs/distributed.yaml
+            MLFLOW_TRACKING_URI: http://mlflow.bci.svc:5000
             MODEL_ROLLOUT: "1"
         # Per-deployment overrides (names are defined in serve.py), e.g.:
         # deployments:
@@ -58,7 +58,7 @@ spec:
       template:
         spec:
           nodeSelector:
-            merge.io/pool: system
+            bci.io/pool: system
           containers:
             - name: ray-head
               image: ghcr.io/your-org/bci-platform:0.1.0
@@ -82,7 +82,7 @@ spec:
         template:
           spec:
             nodeSelector:
-              merge.io/pool: cpu-ondemand
+              bci.io/pool: cpu-ondemand
             containers:
               - name: ray-worker
                 image: ghcr.io/your-org/bci-platform:0.1.0
@@ -100,7 +100,7 @@ spec:
       #   rayStartParams: {metrics-export-port: "8080"}
       #   template:
       #     spec:
-      #       nodeSelector: {merge.io/pool: gpu}
+      #       nodeSelector: {bci.io/pool: gpu}
       #       tolerations: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}]
       #       containers:
       #         - name: ray-worker

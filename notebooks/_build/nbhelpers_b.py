@@ -47,7 +47,7 @@ def preamble(tag: str, extra: str = "") -> NotebookNode:
         from pathlib import Path
 
         os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
-        os.environ.setdefault("MERGE_LOG_LEVEL", "WARNING")   # keep structlog output out of the notebook
+        os.environ.setdefault("BCI_LOG_LEVEL", "WARNING")   # keep structlog output out of the notebook
         os.environ.setdefault("RAY_DEDUP_LOGS", "1")
         warnings.filterwarnings("ignore", category=UserWarning)
         warnings.filterwarnings("ignore", category=DeprecationWarning)

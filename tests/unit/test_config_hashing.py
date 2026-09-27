@@ -27,7 +27,7 @@ def test_local_matches_plan_defaults() -> None:
 
 
 def test_env_var_selects_config(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MERGE_CONFIG", "gpu")
+    monkeypatch.setenv("BCI_CONFIG", "gpu")
     assert load_config().distributed.use_gpu is True
 
 

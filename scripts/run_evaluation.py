@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     p.add_argument(
-        "--config", default=None, help="config file/name (default: $MERGE_CONFIG or local)"
+        "--config", default=None, help="config file/name (default: $BCI_CONFIG or local)"
     )
     src = p.add_mutually_exclusive_group()
     src.add_argument("--model-version", default=None, help="registered model version")

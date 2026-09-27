@@ -34,7 +34,7 @@ ENV PYTHONUNBUFFERED=1 \
     VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:${PATH}" \
     DAGSTER_HOME=/opt/dagster/dagster_home \
-    MERGE_CONFIG=configs/local.yaml
+    BCI_CONFIG=configs/local.yaml
 
 # Minimal OS deps: git (git_sha() provenance), tini (PID 1 signal handling for
 # `ray start --block` and the Dagster daemon).

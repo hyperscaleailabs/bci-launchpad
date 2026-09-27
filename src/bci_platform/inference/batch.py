@@ -151,7 +151,7 @@ class PredictorActor:
             t0 = time.perf_counter()
             # Materialize the checkpoint locally from the object store: works on a
             # multi-node cluster without a shared filesystem.
-            self._tmp = tempfile.TemporaryDirectory(prefix="merge_predictor_")
+            self._tmp = tempfile.TemporaryDirectory(prefix="bci_predictor_")
             path = Path(self._tmp.name) / MODEL_FILE
             path.write_bytes(ray.get(ref))
             self.predictor = Predictor.from_checkpoint(path, device=self.device)

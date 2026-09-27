@@ -25,18 +25,18 @@ flowchart LR
     PG[(Postgres<br/>Dagster + MLflow metadata)]
     ML[MLflow server<br/>--serve-artifacts]
   end
-  subgraph RC["KubeRay RayCluster merge-ray"]
+  subgraph RC["KubeRay RayCluster bci-ray"]
     H[Ray head<br/>GCS · dashboard · client :10001<br/>autoscaler sidecar]
     CW[CPU worker group<br/>1..10 · spot preferred]
     GW[GPU worker group<br/>0..4 · nvidia.com/gpu]
   end
-  subgraph RS["RayService merge-serve"]
+  subgraph RS["RayService bci-serve"]
     SV[Ray Serve replicas<br/>/predict · /predict_batch]
   end
   OBJ[(Object storage / RWX PVC<br/>rounds · checkpoints · artifacts)]
 
   DD --> RP
-  RP -- "RAY_ADDRESS=ray://merge-ray-head-svc:10001" --> H
+  RP -- "RAY_ADDRESS=ray://bci-ray-head-svc:10001" --> H
   H --> CW & GW
   CW & GW -- metrics/params --> ML
   RP --> ML
@@ -54,7 +54,7 @@ model metadata; Ray Serve executes inference.
 
 ## Where each concern lives
 
-**Node selectors and pools.** Three pools, selected with `merge.io/pool`:
+**Node selectors and pools.** Three pools, selected with `bci.io/pool`:
 `system` (on-demand, no GPU: Dagster, MLflow, Ray heads), `cpu` (Ray CPU
 workers, may be spot), `gpu` (tainted `nvidia.com/gpu:NoSchedule`; only pods
 that tolerate it, i.e. the GPU worker group, land there). Serving uses
@@ -87,7 +87,7 @@ because experimental rounds are write-once, versioned materializations.
 
 **Persistent artifact storage.** Every Ray worker and Dagster run pod must see
 the same rounds and checkpoints. The example mounts a ReadWriteMany PVC
-(`merge-shared`: EFS / Filestore / Azure Files) at `/app/data`,
+(`bci-shared`: EFS / Filestore / Azure Files) at `/app/data`,
 `/app/reports`, `/app/artifacts`. The preferred production setup is object
 storage: Ray Train `RunConfig(storage_path="s3://…")`, MLflow
 `--artifacts-destination s3://…`, round store on a bucket.
@@ -117,14 +117,14 @@ and DataLoader workers.
 ## Deploying (sketch)
 
 ```bash
-kubectl create namespace merge
+kubectl create namespace bci
 helm repo add kuberay https://ray-project.github.io/kuberay-helm/
-helm install kuberay-operator kuberay/kuberay-operator -n merge
-kubectl -n merge apply -f infra/k8s/raycluster.yaml
+helm install kuberay-operator kuberay/kuberay-operator -n bci
+kubectl -n bci apply -f infra/k8s/raycluster.yaml
 helm repo add dagster https://dagster-io.github.io/helm
-helm upgrade --install dagster dagster/dagster -n merge -f infra/k8s/dagster-values.yaml
-kubectl -n merge apply -f infra/k8s/rayservice.yaml
-kubectl -n merge apply -f infra/k8s/rayjob.yaml          # ad-hoc retraining
+helm upgrade --install dagster dagster/dagster -n bci -f infra/k8s/dagster-values.yaml
+kubectl -n bci apply -f infra/k8s/rayservice.yaml
+kubectl -n bci apply -f infra/k8s/rayjob.yaml          # ad-hoc retraining
 ```
 
 MLflow and Postgres are not included here; run MLflow as a Deployment (same

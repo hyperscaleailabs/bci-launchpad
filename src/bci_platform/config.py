@@ -2,7 +2,7 @@
 
 `PlatformConfig` is the single source of truth for every tunable in the demo.
 It is loaded from `configs/{local,distributed,gpu}.yaml`; the environment
-variable ``MERGE_CONFIG`` selects the file when no explicit path is given.
+variable ``BCI_CONFIG`` selects the file when no explicit path is given.
 
 Layering: a config file may declare ``extends: local.yaml`` to inherit from
 another file (resolved relative to itself) and override only what differs.
@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = REPO_ROOT / "configs"
 DEFAULT_CONFIG = CONFIG_DIR / "local.yaml"
-CONFIG_ENV_VAR = "MERGE_CONFIG"
+CONFIG_ENV_VAR = "BCI_CONFIG"
 
 
 class _Section(BaseModel):
@@ -97,8 +97,8 @@ class ActiveLearningConfig(_Section):
 
 class TrackingConfig(_Section):
     tracking_uri: str = "sqlite:///mlflow.db"
-    experiment: str = "merge-closed-loop"
-    registered_model: str = "merge-surrogate"
+    experiment: str = "bci-closed-loop"
+    registered_model: str = "bci-surrogate"
 
 
 class ServeConfig(_Section):
@@ -235,6 +235,6 @@ def resolve_config_path(path: str | os.PathLike[str] | None = None) -> Path:
 
 
 def load_config(path: str | os.PathLike[str] | None = None) -> PlatformConfig:
-    """Load a `PlatformConfig` from YAML (``MERGE_CONFIG`` or ``configs/local.yaml``)."""
+    """Load a `PlatformConfig` from YAML (``BCI_CONFIG`` or ``configs/local.yaml``)."""
     p = resolve_config_path(path)
     return PlatformConfig.model_validate(_read_yaml(p))

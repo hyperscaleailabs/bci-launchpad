@@ -1,13 +1,13 @@
-# KubeRay RayCluster for the merge research platform (example; not needed for the
+# KubeRay RayCluster for the BCI research platform (example; not needed for the
 # local demo). Requires the KubeRay operator (helm install kuberay-operator
 # kuberay/kuberay-operator) and, for the GPU group, the NVIDIA device plugin /
 # GPU operator on the GPU node pool.
 #
-#   kubectl create namespace merge
-#   kubectl -n merge apply -f infra/k8s/raycluster.yaml
+#   kubectl create namespace bci
+#   kubectl -n bci apply -f infra/k8s/raycluster.yaml
 #
 # The image is infra/docker/Dockerfile pushed to your registry. Dagster (see
-# dagster-values.yaml) connects with RAY_ADDRESS=ray://merge-ray-head-svc.merge.svc:10001.
+# dagster-values.yaml) connects with RAY_ADDRESS=ray://bci-ray-head-svc.bci.svc:10001.
 ---
 # Shared, persistent storage for rounds (data/), reports/ and checkpoints
 # (artifacts/). Ray Train workers on different nodes must all see the same
@@ -18,8 +18,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: merge-shared
-  namespace: merge
+  name: bci-shared
+  namespace: bci
 spec:
   accessModes: ["ReadWriteMany"]
   storageClassName: rwx-shared   # e.g. efs-sc, standard-rwx, azurefile-csi
@@ -30,8 +30,8 @@ spec:
 apiVersion: ray.io/v1
 kind: RayCluster
 metadata:
-  name: merge-ray
-  namespace: merge
+  name: bci-ray
+  namespace: bci
   labels:
     app.kubernetes.io/part-of: bci-platform
 spec:
@@ -65,14 +65,14 @@ spec:
         # Head must be on stable (on-demand) capacity: losing it loses the
         # cluster (unless GCS fault tolerance with external Redis is enabled).
         nodeSelector:
-          merge.io/pool: system
+          bci.io/pool: system
         containers:
           - name: ray-head
             image: ghcr.io/your-org/bci-platform:0.1.0
             imagePullPolicy: IfNotPresent
             env: &common-env
-              - {name: MERGE_CONFIG, value: configs/distributed.yaml}
-              - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.merge.svc:5000"}
+              - {name: BCI_CONFIG, value: configs/distributed.yaml}
+              - {name: MLFLOW_TRACKING_URI, value: "http://mlflow.bci.svc:5000"}
               - {name: RAY_SERVE_DEFAULT_HTTP_HOST, value: "0.0.0.0"}
             ports:
               - {containerPort: 6379, name: gcs-server}
@@ -91,7 +91,7 @@ spec:
         volumes: &common-volumes
           - name: shared
             persistentVolumeClaim:
-              claimName: merge-shared
+              claimName: bci-shared
           - name: dshm          # Ray object store + DataLoader shared memory
             emptyDir:
               medium: Memory
@@ -112,7 +112,7 @@ spec:
             app.kubernetes.io/component: ray-worker-cpu
         spec:
           nodeSelector:
-            merge.io/pool: cpu
+            bci.io/pool: cpu
           # CPU work is retry-safe (Ray task retries, Ray Train restores from
           # the last checkpoint), so it may run on spot/preemptible nodes.
           # Prefer spot, fall back to on-demand:
@@ -161,7 +161,7 @@ spec:
           # nvidia-l4; EKS: node.kubernetes.io/instance-type or a Karpenter
           # NodePool label).
           nodeSelector:
-            merge.io/pool: gpu
+            bci.io/pool: gpu
           # GPU pools are tainted so only GPU workloads land there.
           tolerations:
             - {key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}

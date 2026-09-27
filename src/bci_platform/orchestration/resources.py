@@ -6,7 +6,7 @@ MLflow, ``data/``), the Docker Compose stack or KubeRay by swapping resource
 configuration only.
 
 * `PlatformConfigResource` — which ``configs/*.yaml`` to load (``None`` ->
-  ``$MERGE_CONFIG`` or ``configs/local.yaml``).
+  ``$BCI_CONFIG`` or ``configs/local.yaml``).
 * `RoundStoreResource` — the immutable experimental-round store.
 * `TrackingResource` — MLflow `Tracker` + gated `ModelRegistry`.
 * `RayComputeResource` — the stable compute API (train / predict_pool /

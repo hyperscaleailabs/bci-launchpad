@@ -181,7 +181,7 @@ new_experimental_results ◄─ selected_experiments ◄─ candidate_prediction
   the UI, materializes the next round.
 * **Jobs, sensor and schedule.**
   * Jobs: `bootstrap_job`, `closed_loop_round_job` and `retrain_job`.
-  * `new_round_sensor` polls the RoundStore and is capped by `MERGE_MAX_ROUND`
+  * `new_round_sensor` polls the RoundStore and is capped by `BCI_MAX_ROUND`
     (default 5).
   * `nightly_retrain_schedule` retrains the latest round nightly.
   * The sensor and the schedule are both STOPPED by default.
@@ -327,7 +327,7 @@ register() ─► candidate ──gate passed──► validated ─► producti
   `set_stage(v, "validated"|"production")` refuses versions without a recorded
   passing gate.
 * The aliases `candidate`, `validated` and `production` point at the newest
-  version in each state, so consumers resolve `models:/merge-surrogate@production`.
+  version in each state, so consumers resolve `models:/bci-surrogate@production`.
 * The registered artifact is an `mlflow.pyfunc` wrapper around the
   framework-free `Predictor` and carries the raw checkpoint, so Ray Serve loads
   it without MLflow.
@@ -420,8 +420,8 @@ Notebook 11 and `make failure-demo` walk through both halves.
   * `rank`, `world_size` and `pid` inside DDP workers.
 
   Assets bind the ids with `bound_ids(...)` (contextvars).
-  `MERGE_LOG_FORMAT=json` prints one JSON object per line.
-  `MERGE_LOG_LEVEL` sets the level.
+  `BCI_LOG_FORMAT=json` prints one JSON object per line.
+  `BCI_LOG_LEVEL` sets the level.
 * **Local views.**
   * Dagster: asset metadata such as MLflow links, hashes, worker pids and gate
     reasons.
@@ -464,7 +464,7 @@ are needed for the demo). Each local piece maps to a cluster piece:
 | `mlflow.db` (SQLite), `dagster_home/` SQLite | **Postgres** for the MLflow backend store and Dagster run/event storage |
 | `data/`, `artifacts/`, `mlartifacts/` on local disk | **Object storage** (S3/GCS) or an RWX PVC: Ray Train `storage_path`, MLflow `--artifacts-destination`, round store |
 
-* **Node selectors.** `merge.io/pool` selects one of three pools:
+* **Node selectors.** `bci.io/pool` selects one of three pools:
   * `system`: on-demand, runs Dagster, MLflow and the Ray head;
   * `cpu`: Ray CPU workers, spot preferred;
   * `gpu`: tainted `nvidia.com/gpu`.
@@ -600,11 +600,11 @@ checkpoint recovery.
   Actors, placement groups, per-worker logs). Without the dashboard, the
   console log lines carry `rank`, `world_size` and `pid` from each DDP worker.
 * **MLflow experiment history**: http://localhost:5000, experiment
-  `merge-closed-loop`. Runs have per-epoch metrics, params, the dataset input,
+  `bci-closed-loop`. Runs have per-epoch metrics, params, the dataset input,
   hash tags, and the `checkpoint/` and `evaluation/` artifacts.
 * **Evaluation reports**: `reports/round_XXX/<mlflow_run_id>/` with
   `report.md`, `metrics.json`, `comparison.json` and `predictions.parquet`.
-* **Model registry**: MLflow → *Models* → `merge-surrogate`. Look at the
+* **Model registry**: MLflow → *Models* → `bci-surrogate`. Look at the
   `production` / `validated` / `candidate` aliases and the `lifecycle`,
   `gate_passed` and `gate_reasons` tags per version.
 * **Selected experimental candidates**:

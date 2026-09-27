@@ -1,4 +1,4 @@
-# Local multi-container stack for the merge research platform.
+# Local multi-container stack for the BCI research platform.
 #
 #   docker compose up --build                       # head + 1 CPU worker + Dagster + MLflow
 #   docker compose up --build --scale ray-worker=3  # more CPU workers
@@ -41,7 +41,7 @@ x-app-volumes: &app-volumes
   - artifacts:/app/artifacts
 
 x-app-env: &app-env
-  MERGE_CONFIG: ${MERGE_CONFIG:-configs/distributed.yaml}
+  BCI_CONFIG: ${BCI_CONFIG:-configs/distributed.yaml}
   MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-http://mlflow:5000}
   PYTHONUNBUFFERED: "1"
 

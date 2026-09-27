@@ -7,7 +7,7 @@
 #   make serve    (terminal 3) # Ray Serve of the production model on :8000
 #   make query                 # query the served model
 #
-# Variables: CONFIG=configs/distributed.yaml (default: $MERGE_CONFIG or configs/local.yaml),
+# Variables: CONFIG=configs/distributed.yaml (default: $BCI_CONFIG or configs/local.yaml),
 #            ROUNDS=3, FRESH=1 (closed-loop from scratch), RAY_ADDRESS=auto (use `make ray`).
 
 SHELL := /bin/bash

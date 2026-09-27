@@ -29,17 +29,17 @@ cells = [
 
         | Kubernetes object | What it is | In this platform |
         |---|---|---|
-        | **Node** | a VM / machine with allocatable CPU, memory, GPUs; labels + taints | nodes in pools `system`, `cpu`, `cpu-ondemand`, `gpu` (label `merge.io/pool`) |
+        | **Node** | a VM / machine with allocatable CPU, memory, GPUs; labels + taints | nodes in pools `system`, `cpu`, `cpu-ondemand`, `gpu` (label `bci.io/pool`) |
         | **Pod** | one or more containers scheduled together on one node; unit of scheduling | a Ray head or Ray worker process group |
         | **requests / limits** | requests = what the scheduler reserves; limits = what the kernel enforces | Ray derives its logical `CPU`/`GPU`/`memory` from the pod's resources |
         | **Deployment** | keeps N identical pods running (stateless services) | MLflow server, Dagster webserver/daemon (`dagster-values.yaml`) |
         | **Job** | runs pods to completion, with retries (`backoffLimit`) | the RayJob submitter pod |
         | **node pool** | a group of identical nodes (same instance type), scaled together | spot CPU pool, on-demand CPU pool, GPU pool |
-        | **nodeSelector / affinity** | hard / soft constraints on *which nodes* a pod may use | GPU workers → `merge.io/pool: gpu`; CPU workers *prefer* spot |
+        | **nodeSelector / affinity** | hard / soft constraints on *which nodes* a pod may use | GPU workers → `bci.io/pool: gpu`; CPU workers *prefer* spot |
         | **taint / toleration** | a node repels pods unless they tolerate the taint | GPU nodes tainted `nvidia.com/gpu:NoSchedule` so CPU pods never occupy them |
         | **extended resource** `nvidia.com/gpu` | whole GPUs advertised by the device plugin; requests must equal limits | GPU worker pods request `nvidia.com/gpu: 1` |
         | **autoscaling** | HPA (pods), Cluster Autoscaler / Karpenter (nodes) | Serve autoscaler → KubeRay autoscaler → node autoscaler |
-        | **PersistentVolumeClaim** | durable storage outliving pods; `ReadWriteMany` = shared by many nodes | `merge-shared` for rounds, reports, checkpoints |
+        | **PersistentVolumeClaim** | durable storage outliving pods; `ReadWriteMany` = shared by many nodes | `bci-shared` for rounds, reports, checkpoints |
         | **KubeRay CRDs** | `RayCluster`, `RayJob`, `RayService` — the operator turns them into pods/services | `raycluster.yaml`, `rayjob.yaml`, `rayservice.yaml` |
 
         ```text
@@ -116,9 +116,9 @@ cells = [
 
         rows = []
         cluster_specs = {
-            "raycluster.yaml": docs[("raycluster.yaml", "RayCluster", "merge-ray")]["spec"],
-            "rayjob.yaml": docs[("rayjob.yaml", "RayJob", "merge-train")]["spec"]["rayClusterSpec"],
-            "rayservice.yaml": docs[("rayservice.yaml", "RayService", "merge-serve")]["spec"]["rayClusterConfig"],
+            "raycluster.yaml": docs[("raycluster.yaml", "RayCluster", "bci-ray")]["spec"],
+            "rayjob.yaml": docs[("rayjob.yaml", "RayJob", "bci-train")]["spec"]["rayClusterSpec"],
+            "rayservice.yaml": docs[("rayservice.yaml", "RayService", "bci-serve")]["spec"]["rayClusterConfig"],
         }
         for src, cs in cluster_specs.items():
             for gname, g, spec in groups(cs):
@@ -129,7 +129,7 @@ cells = [
     ),
     code(
         r"""
-        rc = docs[("raycluster.yaml", "RayCluster", "merge-ray")]["spec"]
+        rc = docs[("raycluster.yaml", "RayCluster", "bci-ray")]["spec"]
         cap = []
         for label, pick in (("min", "minReplicas"), ("initial", "replicas"), ("max", "maxReplicas")):
             tot = {"CPU": 0.0, "GPU": 0.0, "memory GiB": 0.0}
@@ -141,7 +141,7 @@ cells = [
                 tot["GPU"] += n * float(lim.get("nvidia.com/gpu", 0))
                 tot["memory GiB"] += n * mem_gib(lim["memory"])
             cap.append({"scale": label, **tot})
-        print("merge-ray RayCluster: Ray logical resources at each scale (head contributes 0 CPUs: num-cpus=0)")
+        print("bci-ray RayCluster: Ray logical resources at each scale (head contributes 0 CPUs: num-cpus=0)")
         print("autoscaler:", rc["autoscalerOptions"]["idleTimeoutSeconds"], "s idle timeout;",
               "enableInTreeAutoscaling =", rc["enableInTreeAutoscaling"])
         pd.DataFrame(cap).set_index("scale")
@@ -149,18 +149,18 @@ cells = [
     ),
     code(
         r"""
-        pvc = docs[("raycluster.yaml", "PersistentVolumeClaim", "merge-shared")]
-        job = docs[("rayjob.yaml", "RayJob", "merge-train")]["spec"]
-        svc = docs[("rayservice.yaml", "RayService", "merge-serve")]["spec"]
+        pvc = docs[("raycluster.yaml", "PersistentVolumeClaim", "bci-shared")]
+        job = docs[("rayjob.yaml", "RayJob", "bci-train")]["spec"]
+        svc = docs[("rayservice.yaml", "RayService", "bci-serve")]["spec"]
         serve_cfg = yaml.safe_load(svc["serveConfigV2"])
-        print("PVC merge-shared:", pvc["spec"]["accessModes"], pvc["spec"]["resources"]["requests"]["storage"],
+        print("PVC bci-shared:", pvc["spec"]["accessModes"], pvc["spec"]["resources"]["requests"]["storage"],
               "storageClass", pvc["spec"]["storageClassName"])
         mounts = rc["headGroupSpec"]["template"]["spec"]["containers"][0]["volumeMounts"]
         print("  mounted at:", [m["mountPath"] for m in mounts])
-        print("\nRayJob merge-train:", {k: job[k] for k in ("entrypoint", "submissionMode", "shutdownAfterJobFinishes",
+        print("\nRayJob bci-train:", {k: job[k] for k in ("entrypoint", "submissionMode", "shutdownAfterJobFinishes",
                                                            "backoffLimit", "activeDeadlineSeconds")})
         app = serve_cfg["applications"][0]
-        print("\nRayService merge-serve app:", {k: app[k] for k in ("name", "import_path", "route_prefix")})
+        print("\nRayService bci-serve app:", {k: app[k] for k in ("name", "import_path", "route_prefix")})
         print("  http:", serve_cfg["http_options"], "| proxy_location:", serve_cfg["proxy_location"])
         """
     ),
@@ -195,12 +195,12 @@ cells = [
     code(
         r"""
         nodes = [
-            {"name": "sys-1",   "labels": {"merge.io/pool": "system"}, "taints": [], "cpu": 4, "mem": 16, "gpu": 0},
-            {"name": "cpu-spot-1", "labels": {"merge.io/pool": "cpu", "karpenter.sh/capacity-type": "spot"},
+            {"name": "sys-1",   "labels": {"bci.io/pool": "system"}, "taints": [], "cpu": 4, "mem": 16, "gpu": 0},
+            {"name": "cpu-spot-1", "labels": {"bci.io/pool": "cpu", "karpenter.sh/capacity-type": "spot"},
              "taints": [("cloud.google.com/gke-spot", "true")], "cpu": 8, "mem": 32, "gpu": 0},
-            {"name": "cpu-od-1", "labels": {"merge.io/pool": "cpu", "karpenter.sh/capacity-type": "on-demand"},
+            {"name": "cpu-od-1", "labels": {"bci.io/pool": "cpu", "karpenter.sh/capacity-type": "on-demand"},
              "taints": [], "cpu": 8, "mem": 32, "gpu": 0},
-            {"name": "gpu-1",   "labels": {"merge.io/pool": "gpu"}, "taints": [("nvidia.com/gpu", None)],
+            {"name": "gpu-1",   "labels": {"bci.io/pool": "gpu"}, "taints": [("nvidia.com/gpu", None)],
              "cpu": 16, "mem": 64, "gpu": 1},
         ]
 
@@ -335,13 +335,13 @@ cells = [
 
         | Local (this laptop) | Kubernetes / KubeRay |
         |---|---|
-        | `ensure_ray()` starts a local head + raylet | `RayCluster` head pod; drivers connect with `RAY_ADDRESS=ray://merge-ray-head-svc:10001` (same `ensure_ray`, which reads `RAY_ADDRESS`) |
+        | `ensure_ray()` starts a local head + raylet | `RayCluster` head pod; drivers connect with `RAY_ADDRESS=ray://bci-ray-head-svc:10001` (same `ensure_ray`, which reads `RAY_ADDRESS`) |
         | `ensure_ray(num_cpus=6)` caps logical CPUs | pod `limits.cpu` / `rayStartParams.num-cpus` define Ray's `CPU` per node |
         | worker *processes* | worker *pods* in worker groups (`cpu`, `gpu`, `serve-cpu`) |
         | `select_resources(cfg)` → `ScalingConfig` | same call; on GPU pods `cuda_gpu_count()` > 0 → `use_gpu=True`, one worker per GPU |
         | `train_distributed(...)` via `make train` | `RayJob` running `scripts/run_training.py` on an ephemeral cluster |
         | `serve.run(build_app(...))` via `make serve` | `RayService` with `import_path: bci_platform.inference.serve:app`, blue/green upgrades |
-        | `data/`, `artifacts/`, `reports/` on local disk | `ReadWriteMany` PVC `merge-shared` (or object storage) mounted at `/app/...` |
+        | `data/`, `artifacts/`, `reports/` on local disk | `ReadWriteMany` PVC `bci-shared` (or object storage) mounted at `/app/...` |
         | `sqlite:///mlflow.db` | MLflow Deployment with Postgres + bucket artifact store |
         | `dagster dev` | Dagster Helm chart (`dagster-values.yaml`); assets call Ray through `RayComputeResource` |
 

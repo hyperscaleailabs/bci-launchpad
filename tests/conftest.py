@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-os.environ.setdefault("MERGE_LOG_LEVEL", "WARNING")
+os.environ.setdefault("BCI_LOG_LEVEL", "WARNING")
 
 from bci_platform.config import PlatformConfig
 from bci_platform.data import (

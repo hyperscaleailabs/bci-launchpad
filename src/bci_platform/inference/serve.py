@@ -50,7 +50,7 @@ How to launch (three equivalent ways)::
     # 2. Serve CLI with an application *builder* (args are key=value):
     serve run bci_platform.inference.serve:app_builder checkpoint=PATH model_version=3
     # 3. Serve CLI / RayService config with an import path and env vars:
-    MERGE_SERVE_CHECKPOINT=PATH MERGE_SERVE_MODEL_VERSION=3 \\
+    BCI_SERVE_CHECKPOINT=PATH BCI_SERVE_MODEL_VERSION=3 \\
         serve run bci_platform.inference.serve:app
 
 ``app`` is resolved lazily (module ``__getattr__``), so importing this module
@@ -81,8 +81,8 @@ from bci_platform.logging import get_logger
 
 log = get_logger(__name__)
 
-ENV_CHECKPOINT = "MERGE_SERVE_CHECKPOINT"
-ENV_MODEL_VERSION = "MERGE_SERVE_MODEL_VERSION"
+ENV_CHECKPOINT = "BCI_SERVE_CHECKPOINT"
+ENV_MODEL_VERSION = "BCI_SERVE_MODEL_VERSION"
 APP_NAME = "surrogate"
 LATENCY_WINDOW = 2048
 BATCH_WINDOW = 256
@@ -135,18 +135,18 @@ class _ServeMetrics:
 
             tags = {"model_version": model_version}
             self._ray["requests"] = m.Counter(
-                "merge_serve_requests",
+                "bci_serve_requests",
                 "Requests handled",
                 tag_keys=("route", "model_version"),  # type: ignore[arg-type]
             )
             self._ray["batch"] = m.Histogram(
-                "merge_serve_batch_size",
+                "bci_serve_batch_size",
                 "Rows per model forward pass",
                 boundaries=list(BATCH_BUCKETS),
                 tag_keys=("model_version",),
             )
             self._ray["latency"] = m.Histogram(
-                "merge_serve_latency_ms",
+                "bci_serve_latency_ms",
                 "End-to-end handler latency (ms)",
                 boundaries=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000],
                 tag_keys=("route", "model_version"),  # type: ignore[arg-type]
@@ -425,7 +425,7 @@ def app_builder(args: dict[str, str] | None = None) -> Application:
     """Serve application builder: ``serve run bci_platform.inference.serve:app_builder
     checkpoint=PATH model_version=V [config=local] [num_replicas=N]``.
 
-    Missing args fall back to ``MERGE_SERVE_CHECKPOINT`` / ``MERGE_SERVE_MODEL_VERSION``.
+    Missing args fall back to ``BCI_SERVE_CHECKPOINT`` / ``BCI_SERVE_MODEL_VERSION``.
     """
     args = dict(args or {})
     ckpt = args.get("checkpoint") or os.environ.get(ENV_CHECKPOINT)
@@ -540,7 +540,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Serve the surrogate model with Ray Serve")
     p.add_argument("--checkpoint", default=os.environ.get(ENV_CHECKPOINT))
     p.add_argument("--model-version", default=os.environ.get(ENV_MODEL_VERSION, "unversioned"))
-    p.add_argument("--config", default=None, help="config file/name (default: MERGE_CONFIG)")
+    p.add_argument("--config", default=None, help="config file/name (default: BCI_CONFIG)")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=None)
     p.add_argument("--num-replicas", type=int, default=None)

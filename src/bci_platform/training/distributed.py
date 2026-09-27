@@ -123,7 +123,7 @@ def _train_loop_per_worker(config: dict[str, Any]) -> None:
     train_ds = ArrayDataset.from_frame(train_frame, dataset_hash=config["dataset_hash"])
     val_ds = ArrayDataset.from_frame(val_frame, dataset_hash=config["dataset_hash"])
 
-    local_root = Path(tempfile.mkdtemp(prefix=f"merge_ray_train_rank{rank}_"))
+    local_root = Path(tempfile.mkdtemp(prefix=f"bci_ray_train_rank{rank}_"))
     try:
         # Recovery: Ray hands back the latest *persisted* checkpoint after a restart.
         restored = ray.train.get_checkpoint()

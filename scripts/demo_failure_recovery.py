@@ -30,7 +30,7 @@ import time
 from pathlib import Path
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
-os.environ.setdefault("MERGE_LOG_LEVEL", "WARNING")
+os.environ.setdefault("BCI_LOG_LEVEL", "WARNING")
 
 import pandas as pd
 import ray
@@ -124,7 +124,7 @@ def part2_experiments(args: argparse.Namespace) -> None:
     banner("PART 2 - NOT retrying an EXPERIMENT: idempotent measurements, write-once rounds")
     pool = generate_candidate_pool(cfg)
     batch = pool["candidate_id"].iloc[:5].tolist()
-    with tempfile.TemporaryDirectory(prefix="merge_demo_") as tmp:
+    with tempfile.TemporaryDirectory(prefix="bci_demo_") as tmp:
         journal = Path(tmp) / "lab_journal.jsonl"
         sim = start_experiment_simulator(cfg, pool, journal_path=journal)
         step(

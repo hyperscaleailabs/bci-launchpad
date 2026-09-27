@@ -1,5 +1,5 @@
 # Demo defaults (see docs/PLAN.md "Config"). Runs in seconds on a laptop CPU.
-# Select another file with MERGE_CONFIG=configs/distributed.yaml (or `distributed`).
+# Select another file with BCI_CONFIG=configs/distributed.yaml (or `distributed`).
 seed: 0
 
 paths:
@@ -49,8 +49,8 @@ active_learning:
 
 tracking:
   tracking_uri: "sqlite:///mlflow.db"
-  experiment: merge-closed-loop
-  registered_model: merge-surrogate
+  experiment: bci-closed-loop
+  registered_model: bci-surrogate
 
 serve:
   num_replicas: 1
