@@ -1,5 +1,5 @@
 [project]
-name = "merge-platform"
+name = "bci-platform"
 version = "0.1.0"
 description = "Local-first research ML platform demo: Dagster + Ray + PyTorch DDP + MLflow + Ray Serve over a synthetic closed-loop scientific optimization task."
 readme = "README.md"
@@ -48,11 +48,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/merge_platform"]
+packages = ["src/bci_platform"]
 
 [tool.dagster]
-module_name = "merge_platform.orchestration.definitions"
-code_location_name = "merge_platform"
+module_name = "bci_platform.orchestration.definitions"
+code_location_name = "bci_platform"
 
 [tool.ruff]
 line-length = 100
@@ -75,7 +75,7 @@ ignore = ["E501", "RUF012"]
 [tool.mypy]
 python_version = "3.12"
 mypy_path = "src"
-packages = ["merge_platform"]
+packages = ["bci_platform"]
 ignore_missing_imports = true
 warn_unused_ignores = false
 check_untyped_defs = true

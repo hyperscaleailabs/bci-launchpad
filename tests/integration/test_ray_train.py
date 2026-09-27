@@ -10,16 +10,16 @@ import pandas as pd
 import pytest
 import ray
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import (
     RoundStore,
     generate_candidate_pool,
     initial_observations,
     make_oracle,
 )
-from merge_platform.inference import Predictor
-from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
-from merge_platform.training.distributed import distributed_info, train_distributed
+from bci_platform.inference import Predictor
+from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+from bci_platform.training.distributed import distributed_info, train_distributed
 
 pytestmark = pytest.mark.integration
 

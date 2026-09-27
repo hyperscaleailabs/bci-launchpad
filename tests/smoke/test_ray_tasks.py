@@ -9,12 +9,12 @@ import pandas as pd
 import pytest
 import ray
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import generate_candidate_pool
-from merge_platform.evaluation import bootstrap_ci
-from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
-from merge_platform.ray_runtime.resources import select_resources
-from merge_platform.ray_runtime.tasks import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import generate_candidate_pool
+from bci_platform.evaluation import bootstrap_ci
+from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+from bci_platform.ray_runtime.resources import select_resources
+from bci_platform.ray_runtime.tasks import (
     bounded_map,
     parallel_bootstrap_ci,
     square_sum_task,

@@ -16,14 +16,14 @@ global:
 dagster-user-deployments:
   enabled: true
   deployments:
-    - name: merge-platform
+    - name: bci-platform
       image:
-        repository: ghcr.io/your-org/merge-platform   # built from infra/docker/Dockerfile
+        repository: ghcr.io/your-org/bci-platform   # built from infra/docker/Dockerfile
         tag: "0.1.0"
         pullPolicy: IfNotPresent
       dagsterApiGrpcArgs:
         - "--module-name"
-        - "merge_platform.orchestration.definitions"
+        - "bci_platform.orchestration.definitions"
         - "--working-directory"
         - "/app"
       port: 3030

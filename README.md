@@ -1,4 +1,4 @@
-# merge-platform — a closed-loop research ML platform, demo-sized
+# bci-platform — a closed-loop research ML platform, demo-sized
 
 The smallest credible internal research ML platform: **Dagster** orchestrates a
 partitioned asset graph, **Ray** places the work, **PyTorch DDP** trains the
@@ -360,7 +360,7 @@ register() ─► candidate ──gate passed──► validated ─► producti
 ## Serving
 
 `make serve` resolves the `production` alias from the registry and starts
-`python -m merge_platform.inference.serve --checkpoint <path> --model-version <v>`.
+`python -m bci_platform.inference.serve --checkpoint <path> --model-version <v>`.
 
 | Endpoint | Body / response |
 |---|---|
@@ -413,7 +413,7 @@ Notebook 11 and `make failure-demo` walk through both halves.
 
 ## Observability
 
-* **Structured logs** (`merge_platform/logging.py`, structlog). Every log line
+* **Structured logs** (`bci_platform/logging.py`, structlog). Every log line
   carries the correlation ids that apply:
   * `run_id`: the Dagster run, or the MLflow run in training;
   * `round_id`, `dataset_id`, `model_version` and `ray_job_id`;
@@ -511,7 +511,7 @@ link to this repo's code, failure modes and an exercise. Run them all with
 .
 ├── Makefile  pyproject.toml  uv.lock  docker-compose.yml  .env.example  .pre-commit-config.yaml
 ├── configs/            local.yaml · distributed.yaml · gpu.yaml   (pydantic-validated, `extends:`)
-├── src/merge_platform/
+├── src/bci_platform/
 │   ├── config.py  hashing.py  logging.py
 │   ├── data/            schema · synthetic_oracle · generation · validation · normalization · datasets (RoundStore)
 │   ├── models/          mlp (ResidualMLP) · losses · uncertainty (MC dropout)

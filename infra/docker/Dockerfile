@@ -11,7 +11,7 @@
 # (Ray client requires matching Python + Ray versions on both sides).
 #
 # Build (from the repo root):
-#   docker build -f infra/docker/Dockerfile -t merge-platform:dev .
+#   docker build -f infra/docker/Dockerfile -t bci-platform:dev .
 #
 # NOTE on image size: uv.lock resolves torch from PyPI. On linux/amd64 the PyPI
 # torch wheel depends on the nvidia-* CUDA runtime wheels, so the image is
@@ -74,4 +74,4 @@ RUN mkdir -p /app/data /app/reports /app/artifacts /opt/dagster/storage /mlflow
 EXPOSE 3000 5000 6379 8000 8080 8265 10001
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["python", "-c", "import merge_platform; print('merge_platform image OK')"]
+CMD ["python", "-c", "import bci_platform; print('bci_platform image OK')"]

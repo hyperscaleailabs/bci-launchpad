@@ -173,7 +173,7 @@ cells = [
     survivors by $\frac{1}{1-p}$ so that $\mathbb{E}[\text{output}]$ equals the eval-mode
     output. Forgetting `model.eval()` at inference time makes predictions *random*.
     The repository deliberately exploits this for **MC dropout** uncertainty
-    (`merge_platform.models.uncertainty.mc_dropout_predict`): keep dropout on at
+    (`bci_platform.models.uncertainty.mc_dropout_predict`): keep dropout on at
     inference, predict $T$ times, use the spread as an epistemic-uncertainty estimate.
 
     Note: `torch.no_grad()` is a *different* switch — it stops graph recording (memory,
@@ -201,7 +201,7 @@ cells = [
 
     We use the platform's synthetic "expensive experiment": a hidden nonlinear oracle
     $y = f(x) + \varepsilon(x)$ with heteroscedastic noise over 32 features
-    (`merge_platform.data.synthetic_oracle.SyntheticOracle`). `PlatformConfig.for_tests`
+    (`bci_platform.data.synthetic_oracle.SyntheticOracle`). `PlatformConfig.for_tests`
     gives a tiny configuration (2 000-candidate pool, 300 initial observations).
 
     A `Dataset` answers `len()` and `__getitem__(i)`; a `DataLoader` turns it into an
@@ -210,8 +210,8 @@ cells = [
     $\lceil n/B \rceil$ steps (or $\lfloor n/B \rfloor$ with `drop_last=True`).
     """),
     code(r"""
-    from merge_platform.config import PlatformConfig
-    from merge_platform.data import (
+    from bci_platform.config import PlatformConfig
+    from bci_platform.data import (
         generate_candidate_pool, initial_observations, make_oracle, records_to_frame, train_val_split,
     )
 
@@ -384,12 +384,12 @@ cells = [
     Moving to a GPU is `model.to(device)` + moving every batch. CUDA kernels are launched
     **asynchronously** — the Python call returns before the GPU finishes, so wall-clock
     timings need `torch.cuda.synchronize()`. The repo resolves the device in
-    `merge_platform.training.config.resolve_device`: `auto` → `cuda:<local_rank>` if CUDA
+    `bci_platform.training.config.resolve_device`: `auto` → `cuda:<local_rank>` if CUDA
     exists, else CPU. Apple **MPS** is never chosen automatically (not bit-reproducible,
     not supported by DDP).
     """),
     code(r"""
-    from merge_platform.training.config import resolve_device
+    from bci_platform.training.config import resolve_device
 
     device = resolve_device(cfg.with_overrides(**{"training.device": "auto"}))
     print("resolve_device(auto) ->", device)
@@ -407,7 +407,7 @@ cells = [
     md(r"""
     ## 11. The repository `Trainer` does the same thing
 
-    `merge_platform.training.trainer.Trainer` wraps the loop above and adds:
+    `bci_platform.training.trainer.Trainer` wraps the loop above and adds:
 
     * `setup()` — `seed_everything`, `configure_determinism` (deterministic kernels),
       fits a `Normalizer` on the training split only, builds `ResidualMLP` via
@@ -421,9 +421,9 @@ cells = [
     * `train(..., resume_from=..., fail_at_epoch=...)` — resumption and failure injection.
     """),
     code(r"""
-    from merge_platform.data import ArrayDataset
-    from merge_platform.training import Trainer, load_checkpoint, predict_array
-    from merge_platform.inference import Predictor
+    from bci_platform.data import ArrayDataset
+    from bci_platform.training import Trainer, load_checkpoint, predict_array
+    from bci_platform.inference import Predictor
 
     tcfg = cfg.with_overrides(**{"training.epochs": 10})
     trainer = Trainer(tcfg)
@@ -458,15 +458,15 @@ cells = [
 
     | Concept in this notebook | Repository implementation |
     |---|---|
-    | model with dropout, `(B,)` output | `src/merge_platform/models/mlp.py` — `ResidualMLP`, `build_model`, `model_from_spec` |
-    | MC dropout | `src/merge_platform/models/uncertainty.py` — `mc_dropout_predict` |
-    | normalization fitted on train only | `src/merge_platform/data/normalization.py` — `Normalizer.fit` |
-    | `Dataset` | `src/merge_platform/data/datasets.py` — `ArrayDataset`, `train_val_split` |
-    | seeding / determinism / device | `src/merge_platform/training/config.py` — `seed_everything`, `configure_determinism`, `resolve_device`, `get_rng_state` |
-    | training loop | `src/merge_platform/training/trainer.py` — `Trainer._train_epoch`, `Trainer.validate`, `Trainer.train` |
-    | checkpoint format | `src/merge_platform/training/checkpointing.py` — `save_checkpoint` (atomic), `load_checkpoint(weights_only=True)`, `checkpoint_hash` |
-    | inference | `src/merge_platform/inference/predictor.py` — `Predictor.from_checkpoint`, `predict_with_uncertainty` |
-    | config | `src/merge_platform/config.py` — `PlatformConfig`, `configs/local.yaml` |
+    | model with dropout, `(B,)` output | `src/bci_platform/models/mlp.py` — `ResidualMLP`, `build_model`, `model_from_spec` |
+    | MC dropout | `src/bci_platform/models/uncertainty.py` — `mc_dropout_predict` |
+    | normalization fitted on train only | `src/bci_platform/data/normalization.py` — `Normalizer.fit` |
+    | `Dataset` | `src/bci_platform/data/datasets.py` — `ArrayDataset`, `train_val_split` |
+    | seeding / determinism / device | `src/bci_platform/training/config.py` — `seed_everything`, `configure_determinism`, `resolve_device`, `get_rng_state` |
+    | training loop | `src/bci_platform/training/trainer.py` — `Trainer._train_epoch`, `Trainer.validate`, `Trainer.train` |
+    | checkpoint format | `src/bci_platform/training/checkpointing.py` — `save_checkpoint` (atomic), `load_checkpoint(weights_only=True)`, `checkpoint_hash` |
+    | inference | `src/bci_platform/inference/predictor.py` — `Predictor.from_checkpoint`, `predict_with_uncertainty` |
+    | config | `src/bci_platform/config.py` — `PlatformConfig`, `configs/local.yaml` |
 
     ## 13. Failure modes
 

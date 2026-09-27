@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.inference.batch import predict_pool, predict_pool_local, shard_bounds
-from merge_platform.training import TrainResult
+from bci_platform.inference.batch import predict_pool, predict_pool_local, shard_bounds
+from bci_platform.training import TrainResult
 
 pytestmark = pytest.mark.smoke
 
@@ -18,7 +18,7 @@ ray = pytest.importorskip("ray")
 
 @pytest.fixture(scope="module")
 def ray_local() -> Iterator[None]:
-    from merge_platform.ray_runtime.cluster import ensure_ray
+    from bci_platform.ray_runtime.cluster import ensure_ray
 
     started = not ray.is_initialized()
     ensure_ray(num_cpus=2, include_dashboard=False)

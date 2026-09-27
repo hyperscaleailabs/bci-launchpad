@@ -35,8 +35,8 @@ os.environ.setdefault("MERGE_LOG_LEVEL", "WARNING")
 import pandas as pd
 import ray
 
-from merge_platform.config import load_config
-from merge_platform.data import (
+from bci_platform.config import load_config
+from bci_platform.data import (
     ImmutableRoundError,
     RoundStore,
     generate_candidate_pool,
@@ -44,10 +44,10 @@ from merge_platform.data import (
     make_oracle,
     records_to_frame,
 )
-from merge_platform.inference import Predictor
-from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
-from merge_platform.ray_runtime.tasks import start_experiment_simulator
-from merge_platform.training.distributed import distributed_info, train_distributed
+from bci_platform.inference import Predictor
+from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+from bci_platform.ray_runtime.tasks import start_experiment_simulator
+from bci_platform.training.distributed import distributed_info, train_distributed
 
 
 def banner(text: str) -> None:

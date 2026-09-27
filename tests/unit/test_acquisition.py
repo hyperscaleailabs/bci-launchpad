@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.active_learning import (
+from bci_platform.active_learning import (
     expected_improvement,
     rank_candidates,
     read_selection,
@@ -17,7 +17,7 @@ from merge_platform.active_learning import (
     ucb,
     write_selection,
 )
-from merge_platform.config import PlatformConfig
+from bci_platform.config import PlatformConfig
 
 
 def _frame(n: int) -> pd.DataFrame:

@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import pytest
 
-from merge_platform.data import (
+from bci_platform.data import (
     ImmutableRoundError,
     RoundSequenceError,
     RoundStore,

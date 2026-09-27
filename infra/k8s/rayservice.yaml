@@ -4,7 +4,7 @@
 #   kubectl -n merge port-forward svc/merge-serve-serve-svc 8000:8000
 #   curl localhost:8000/health
 #
-# Contract: the Serve application object is `merge_platform.inference.serve:app`
+# Contract: the Serve application object is `bci_platform.inference.serve:app`
 # (the same import path `make serve` uses locally). It exposes POST /predict,
 # POST /predict_batch, GET /health, GET /model-info and loads the MLflow model
 # currently aliased `production`.
@@ -20,7 +20,7 @@ metadata:
   name: merge-serve
   namespace: merge
   labels:
-    app.kubernetes.io/part-of: merge-platform
+    app.kubernetes.io/part-of: bci-platform
 spec:
   serveConfigV2: |
     proxy_location: EveryNode
@@ -29,7 +29,7 @@ spec:
       port: 8000
     applications:
       - name: merge-surrogate
-        import_path: merge_platform.inference.serve:app
+        import_path: bci_platform.inference.serve:app
         route_prefix: /
         # Code is baked into the image; no working_dir upload.
         runtime_env:
@@ -61,7 +61,7 @@ spec:
             merge.io/pool: system
           containers:
             - name: ray-head
-              image: ghcr.io/your-org/merge-platform:0.1.0
+              image: ghcr.io/your-org/bci-platform:0.1.0
               ports:
                 - {containerPort: 6379, name: gcs-server}
                 - {containerPort: 8265, name: dashboard}
@@ -85,7 +85,7 @@ spec:
               merge.io/pool: cpu-ondemand
             containers:
               - name: ray-worker
-                image: ghcr.io/your-org/merge-platform:0.1.0
+                image: ghcr.io/your-org/bci-platform:0.1.0
                 ports:
                   - {containerPort: 8000, name: serve}
                   - {containerPort: 8080, name: metrics}
@@ -104,7 +104,7 @@ spec:
       #       tolerations: [{key: nvidia.com/gpu, operator: Exists, effect: NoSchedule}]
       #       containers:
       #         - name: ray-worker
-      #           image: ghcr.io/your-org/merge-platform:0.1.0
+      #           image: ghcr.io/your-org/bci-platform:0.1.0
       #           resources:
       #             requests: {cpu: "4", memory: 16Gi, nvidia.com/gpu: 1}
       #             limits: {cpu: "4", memory: 16Gi, nvidia.com/gpu: 1}

@@ -2,6 +2,6 @@
 # pyproject.toml so local `dagster dev` and the containers load the same code.
 load_from:
   - python_module:
-      module_name: merge_platform.orchestration.definitions
-      location_name: merge_platform
+      module_name: bci_platform.orchestration.definitions
+      location_name: bci_platform
       working_directory: /app

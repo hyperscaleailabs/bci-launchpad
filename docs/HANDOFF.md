@@ -72,7 +72,7 @@ The purpose is to demonstrate infrastructure supporting `data → model → deci
 merge-research-platform/
 ├── README.md  CLAUDE.md  pyproject.toml  uv.lock  Makefile  docker-compose.yml  .env.example  .gitignore
 ├── configs/ {local,distributed,gpu}.yaml
-├── src/merge_platform/
+├── src/bci_platform/
 │   ├── data/            schema.py synthetic_oracle.py generation.py validation.py datasets.py
 │   ├── models/          mlp.py losses.py uncertainty.py
 │   ├── training/        trainer.py distributed.py checkpointing.py config.py

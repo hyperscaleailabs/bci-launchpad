@@ -70,7 +70,7 @@ cells = [
     import logging
     logging.getLogger("mlflow").setLevel(logging.ERROR)       # keep MLflow's INFO chatter out of the notebook
 
-    from merge_platform.config import PlatformConfig
+    from bci_platform.config import PlatformConfig
     cfg = PlatformConfig.for_tests(WORK).with_overrides(**{"training.epochs": 6})
     print("tracking URI:", cfg.tracking.tracking_uri)
     print("data dir    :", cfg.paths.data_dir)
@@ -84,8 +84,8 @@ cells = [
     round $N$ commits to the content of rounds $0..N$ (a hash chain, like git commits).
     """),
     code(r"""
-    from merge_platform.data import RoundStore, generate_candidate_pool, initial_observations, make_oracle
-    from merge_platform.data import ImmutableRoundError, measure_candidates
+    from bci_platform.data import RoundStore, generate_candidate_pool, initial_observations, make_oracle
+    from bci_platform.data import ImmutableRoundError, measure_candidates
 
     store = RoundStore(cfg.paths.data_dir)
     pool = generate_candidate_pool(cfg)
@@ -114,8 +114,8 @@ cells = [
     ### Config, code and environment
     """),
     code(r"""
-    from merge_platform.hashing import git_sha, hash_config
-    from merge_platform.tracking import environment_metadata
+    from bci_platform.hashing import git_sha, hash_config
+    from bci_platform.tracking import environment_metadata
 
     print("config hash         :", cfg.config_hash()[:16])
     print("  + epochs changed  :", cfg.with_overrides(**{"training.epochs": 7}).config_hash()[:16])
@@ -145,8 +145,8 @@ cells = [
     bytes; a different seed ⇒ a different model:
     """),
     code(r"""
-    from merge_platform.data import ArrayDataset, train_val_split
-    from merge_platform.training import Trainer, checkpoint_hash, load_checkpoint
+    from bci_platform.data import ArrayDataset, train_val_split
+    from bci_platform.training import Trainer, checkpoint_hash, load_checkpoint
 
     def train_once(cfg: PlatformConfig, round_id: int, out: Path):
         frame = store.training_frame(round_id)
@@ -180,7 +180,7 @@ cells = [
     `mlflow.pyfunc` model and creates a registry version in lifecycle stage `candidate`.
     """),
     code(r"""
-    from merge_platform.tracking import ModelRegistry, PromotionError, Tracker
+    from bci_platform.tracking import ModelRegistry, PromotionError, Tracker
     warnings.filterwarnings("ignore")                          # mlflow pyfunc type-hint advisory
 
     ROUND = 1
@@ -252,7 +252,7 @@ cells = [
     print("bit-identical checkpoint  :", repro.checkpoint_hash == tags["checkpoint_hash"])
     """),
     code(r"""
-    from merge_platform.inference import Predictor
+    from bci_platform.inference import Predictor
 
     registered = Predictor.from_checkpoint(registry.checkpoint_path(version))   # what serving would load
     reproduced = Predictor.from_checkpoint(repro.checkpoint_path)
@@ -314,13 +314,13 @@ cells = [
 
     | Concept | Where |
     |---|---|
-    | tracking adapter (only module importing mlflow), URI resolution, artifact location | `src/merge_platform/tracking/mlflow_client.py` — `Tracker`, `Tracker.log_train_result`, `Tracker.log_dataset`, `resolve_tracking_uri`, `environment_metadata` |
-    | registry + gate-driven lifecycle | `src/merge_platform/tracking/registry.py` — `ModelRegistry.register`, `set_stage`, `promote_if_passed`, `checkpoint_path`, `SurrogatePyfunc` |
-    | hashes | `src/merge_platform/hashing.py` — `hash_dataframe`, `hash_config`, `hash_file`, `git_sha` |
-    | immutable data versions | `src/merge_platform/data/datasets.py` — `RoundStore.write_round`, `dataset_hash`, `verify_chain`, `content_hash`; `data/schema.py::RoundManifest.manifest_hash` |
-    | seeds, determinism, RNG snapshots | `src/merge_platform/training/config.py` — `seed_everything`, `configure_determinism`, `get_rng_state`, `set_rng_state` |
-    | checkpoint contents + hash | `src/merge_platform/training/checkpointing.py` — `save_checkpoint`, `checkpoint_hash` |
-    | what a run records (TrainResult) | `src/merge_platform/training/trainer.py::TrainResult` |
+    | tracking adapter (only module importing mlflow), URI resolution, artifact location | `src/bci_platform/tracking/mlflow_client.py` — `Tracker`, `Tracker.log_train_result`, `Tracker.log_dataset`, `resolve_tracking_uri`, `environment_metadata` |
+    | registry + gate-driven lifecycle | `src/bci_platform/tracking/registry.py` — `ModelRegistry.register`, `set_stage`, `promote_if_passed`, `checkpoint_path`, `SurrogatePyfunc` |
+    | hashes | `src/bci_platform/hashing.py` — `hash_dataframe`, `hash_config`, `hash_file`, `git_sha` |
+    | immutable data versions | `src/bci_platform/data/datasets.py` — `RoundStore.write_round`, `dataset_hash`, `verify_chain`, `content_hash`; `data/schema.py::RoundManifest.manifest_hash` |
+    | seeds, determinism, RNG snapshots | `src/bci_platform/training/config.py` — `seed_everything`, `configure_determinism`, `get_rng_state`, `set_rng_state` |
+    | checkpoint contents + hash | `src/bci_platform/training/checkpointing.py` — `save_checkpoint`, `checkpoint_hash` |
+    | what a run records (TrainResult) | `src/bci_platform/training/trainer.py::TrainResult` |
     | tests | `tests/unit/test_tracking.py`, `tests/unit/test_config_hashing.py`, `tests/unit/test_round_store.py` |
 
     ## 7. Failure modes

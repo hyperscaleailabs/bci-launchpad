@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.active_learning import (
+from bci_platform.active_learning import (
     Constraint,
     ExcludeIds,
     FeatureBounds,
@@ -15,7 +15,7 @@ from merge_platform.active_learning import (
     apply_constraints,
     select_batch,
 )
-from merge_platform.config import PlatformConfig
+from bci_platform.config import PlatformConfig
 
 
 @pytest.fixture

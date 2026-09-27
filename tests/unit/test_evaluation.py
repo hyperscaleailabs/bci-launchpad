@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.config import EvaluationConfig
-from merge_platform.evaluation import (
+from bci_platform.config import EvaluationConfig
+from bci_platform.evaluation import (
     bootstrap_ci,
     check_gates,
     coverage,
@@ -20,7 +20,7 @@ from merge_platform.evaluation import (
     r2,
     rmse,
 )
-from merge_platform.inference import Predictor
+from bci_platform.inference import Predictor
 
 
 def test_metrics_hand_computed() -> None:
@@ -130,7 +130,7 @@ def test_predictor_uncertainty_and_info(trained) -> None:
 
 def test_standardization_scale_belongs_to_the_dataset(trained, tmp_path: Path) -> None:
     """Gate units come from the evaluation dataset's scale, not the candidate's checkpoint."""
-    from merge_platform.evaluation import TargetScale
+    from bci_platform.evaluation import TargetScale
 
     result, tr, va = trained
     pred = Predictor.from_checkpoint(result.checkpoint_path)

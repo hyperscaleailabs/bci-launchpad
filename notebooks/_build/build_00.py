@@ -64,10 +64,10 @@ cells = [
 
     | Plane | Question it answers | Durable state | Implemented by |
     |---|---|---|---|
-    | **Data plane** | *What* was measured, and what is it called? | `data/candidate_pool/`, `data/rounds/round_XXX/{observations.parquet, manifest.json}`, selections, lab journal | `merge_platform.data.RoundStore` (write-once, hash-chained) |
+    | **Data plane** | *What* was measured, and what is it called? | `data/candidate_pool/`, `data/rounds/round_XXX/{observations.parquet, manifest.json}`, selections, lab journal | `bci_platform.data.RoundStore` (write-once, hash-chained) |
     | **Compute plane** | *Where* and on *how many* workers does work run? | none (ephemeral workers, object store) | Ray: Ray Train (DDP), Ray tasks, Ray actors |
     | **Workflow control plane** | *What* runs *when*, in which order, for which round, and what did it produce? | Dagster run/event storage (`$DAGSTER_HOME`) | Dagster assets, jobs, partitions, sensors, schedules |
-    | **Metadata plane** | *Which* run produced which model with which params/metrics/artifacts, and which model is trusted? | MLflow tracking DB + artifact store, model registry | `merge_platform.tracking` (the only MLflow importer) |
+    | **Metadata plane** | *Which* run produced which model with which params/metrics/artifacts, and which model is trusted? | MLflow tracking DB + artifact store, model registry | `bci_platform.tracking` (the only MLflow importer) |
     | **Serving plane** | *How* are predictions delivered at low latency to callers? | none (replicas reload from registry) | Ray Serve deployment `SurrogateModelDeployment` |
 
     The scientific code (`data`, `models`, `training/trainer.py`, `evaluation`,
@@ -167,15 +167,15 @@ cells = [
     ## 6. Import boundaries, proven
 
     The separation in §3 is only real if the source code respects it. Scan every module in
-    `src/merge_platform` with `ast` (this catches imports nested inside functions too, e.g.
+    `src/bci_platform` with `ast` (this catches imports nested inside functions too, e.g.
     the lazy Ray imports in `orchestration/pipeline.py`) and record which frameworks each
     module imports **directly**.
     """),
     code(r"""
     import ast
-    import merge_platform
+    import bci_platform
 
-    SRC = Path(merge_platform.__file__).parent
+    SRC = Path(bci_platform.__file__).parent
     FRAMEWORKS = ("dagster", "mlflow", "ray", "torch")
 
     def framework_imports(path: Path) -> set[str]:
@@ -233,7 +233,7 @@ cells = [
 
     ## 7. The workflow graph, loaded from the live code location
 
-    `merge_platform.orchestration.definitions.defs` is the object `dagster dev` loads.
+    `bci_platform.orchestration.definitions.defs` is the object `dagster dev` loads.
     Building it does not start Ray, MLflow or touch `data/` — resources are lazy — so we can
     introspect it freely.
     """),
@@ -241,7 +241,7 @@ cells = [
     import contextlib, io
     with warnings.catch_warnings(), contextlib.redirect_stderr(io.StringIO()):
         warnings.simplefilter("ignore")               # silence an MLflow import-time UserWarning
-        from merge_platform.orchestration.definitions import defs
+        from bci_platform.orchestration.definitions import defs
 
     graph = defs.resolve_asset_graph()
     rows = []
@@ -286,7 +286,7 @@ cells = [
     (and the MLflow SQLite file) into a temp directory — which is what this notebook uses.
     """),
     code(r"""
-    from merge_platform.config import PlatformConfig, load_config, resolve_config_path
+    from bci_platform.config import PlatformConfig, load_config, resolve_config_path
 
     local = load_config()
     print("default config file:", resolve_config_path().relative_to(SRC.parents[1]))
@@ -314,13 +314,13 @@ cells = [
     → MC-dropout scoring → `select_batch` → measure → round_001.
     """),
     code(r"""
-    from merge_platform.active_learning import select_batch
-    from merge_platform.data import ArrayDataset, RoundStore, make_oracle, measure_candidates, train_val_split
-    from merge_platform.evaluation import evaluate
-    from merge_platform.inference import Predictor
-    from merge_platform.inference.batch import predict_pool_local
-    from merge_platform.orchestration import pipeline as P
-    from merge_platform.training import Trainer
+    from bci_platform.active_learning import select_batch
+    from bci_platform.data import ArrayDataset, RoundStore, make_oracle, measure_candidates, train_val_split
+    from bci_platform.evaluation import evaluate
+    from bci_platform.inference import Predictor
+    from bci_platform.inference.batch import predict_pool_local
+    from bci_platform.orchestration import pipeline as P
+    from bci_platform.training import Trainer
 
     t0 = time.perf_counter()
     store = RoundStore(cfg.paths.data_dir)
@@ -371,7 +371,7 @@ cells = [
     measured value is refused.
     """),
     code(r"""
-    from merge_platform.data import ImmutableRoundError
+    from bci_platform.data import ImmutableRoundError
 
     print("chain verifies:", store.verify_chain())
     print("dataset_hash(D0):", store.dataset_hash(0)[:16], "| dataset_hash(D1):", store.dataset_hash(1)[:16])
@@ -389,7 +389,7 @@ cells = [
 
     | Concept on the map | Where it lives |
     |---|---|
-    | data plane, write-once rounds, hash chain | `src/merge_platform/data/datasets.py` → `RoundStore.write_round`, `dataset_hash`, `verify_chain`; `data/schema.py` → `RoundManifest.manifest_hash` |
+    | data plane, write-once rounds, hash chain | `src/bci_platform/data/datasets.py` → `RoundStore.write_round`, `dataset_hash`, `verify_chain`; `data/schema.py` → `RoundManifest.manifest_hash` |
     | synthetic lab / oracle | `data/synthetic_oracle.py` → `SyntheticOracle`; `ray_runtime/tasks.py` → `ExperimentSimulator` actor |
     | pure training loop | `training/trainer.py` → `Trainer.train` (single-process and DDP-aware) |
     | compute plane: distributed training | `training/distributed.py` → `train_distributed` (Ray Train `TorchTrainer`) |

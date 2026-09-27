@@ -27,21 +27,21 @@ from typing import Any
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
-from merge_platform.config import PlatformConfig, load_config
-from merge_platform.data import (
+from bci_platform.config import PlatformConfig, load_config
+from bci_platform.data import (
     RoundStore,
     generate_candidate_pool,
     initial_observations,
     make_oracle,
     train_val_split,
 )
-from merge_platform.evaluation import TargetScale, evaluate
-from merge_platform.inference import Predictor
-from merge_platform.logging import bind_ids, get_logger
-from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
-from merge_platform.ray_runtime.tasks import ray_job_id
-from merge_platform.tracking import ModelRegistry, Tracker
-from merge_platform.training.distributed import (
+from bci_platform.evaluation import TargetScale, evaluate
+from bci_platform.inference import Predictor
+from bci_platform.logging import bind_ids, get_logger
+from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+from bci_platform.ray_runtime.tasks import ray_job_id
+from bci_platform.tracking import ModelRegistry, Tracker
+from bci_platform.training.distributed import (
     distributed_info,
     load_training_frame,
     train_distributed,

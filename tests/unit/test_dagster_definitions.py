@@ -16,10 +16,10 @@ from dagster import (
     build_sensor_context,
 )
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import RoundStore
-from merge_platform.orchestration import pipeline as P
-from merge_platform.orchestration.definitions import build_definitions, defs
+from bci_platform.config import PlatformConfig
+from bci_platform.data import RoundStore
+from bci_platform.orchestration import pipeline as P
+from bci_platform.orchestration.definitions import build_definitions, defs
 
 CHAIN = [
     "candidate_pool",

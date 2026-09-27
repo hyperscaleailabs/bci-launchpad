@@ -14,10 +14,10 @@ from pathlib import Path
 import pytest
 from dagster import DagsterInstance
 
-from merge_platform.config import REPO_ROOT, PlatformConfig
-from merge_platform.data import RoundStore
-from merge_platform.orchestration import pipeline as P
-from merge_platform.tracking import ModelRegistry
+from bci_platform.config import REPO_ROOT, PlatformConfig
+from bci_platform.data import RoundStore
+from bci_platform.orchestration import pipeline as P
+from bci_platform.tracking import ModelRegistry
 
 pytestmark = pytest.mark.integration
 

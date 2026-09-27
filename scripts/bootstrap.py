@@ -19,8 +19,8 @@ import sys
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
-from merge_platform.config import REPO_ROOT, load_config, resolve_config_path
-from merge_platform.orchestration import pipeline as P
+from bci_platform.config import REPO_ROOT, load_config, resolve_config_path
+from bci_platform.orchestration import pipeline as P
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,8 +43,8 @@ def main(argv: list[str] | None = None) -> int:
         os.makedirs(os.environ["DAGSTER_HOME"], exist_ok=True)
         from dagster import DagsterInstance
 
-        from merge_platform.orchestration.definitions import build_definitions
-        from merge_platform.orchestration.jobs import run_bootstrap
+        from bci_platform.orchestration.definitions import build_definitions
+        from bci_platform.orchestration.jobs import run_bootstrap
 
         with DagsterInstance.get() as instance:
             result = run_bootstrap(build_definitions(config_path=str(cfg_path)), instance)

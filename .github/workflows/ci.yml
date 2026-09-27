@@ -85,7 +85,7 @@ jobs:
         run: |
           export DAGSTER_HOME="$RUNNER_TEMP/dagster_home"
           mkdir -p "$DAGSTER_HOME"
-          uv run dagster definitions validate -m merge_platform.orchestration.definitions
+          uv run dagster definitions validate -m bci_platform.orchestration.definitions
 
   # Opt-in only: never runs on pull_request / push. Trigger from the Actions
   # tab ("Run workflow", tick run-integration). Needs a self-hosted runner

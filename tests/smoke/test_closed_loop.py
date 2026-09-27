@@ -18,14 +18,14 @@ import pytest
 import ray
 from dagster import AssetKey, instance_for_test
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import ImmutableRoundError, RoundStore
-from merge_platform.orchestration import pipeline as P
-from merge_platform.orchestration.definitions import build_definitions
-from merge_platform.orchestration.jobs import run_bootstrap, run_round
-from merge_platform.orchestration.partitions import ROUNDS_PARTITION_NAME
-from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
-from merge_platform.tracking import ModelRegistry, Tracker
+from bci_platform.config import PlatformConfig
+from bci_platform.data import ImmutableRoundError, RoundStore
+from bci_platform.orchestration import pipeline as P
+from bci_platform.orchestration.definitions import build_definitions
+from bci_platform.orchestration.jobs import run_bootstrap, run_round
+from bci_platform.orchestration.partitions import ROUNDS_PARTITION_NAME
+from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+from bci_platform.tracking import ModelRegistry, Tracker
 
 pytestmark = pytest.mark.smoke
 

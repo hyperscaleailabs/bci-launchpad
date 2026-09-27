@@ -33,7 +33,7 @@ metadata:
   name: merge-ray
   namespace: merge
   labels:
-    app.kubernetes.io/part-of: merge-platform
+    app.kubernetes.io/part-of: bci-platform
 spec:
   rayVersion: "2.58.0"   # must match the ray version in uv.lock / the image
   # KubeRay's in-tree autoscaler sidecar scales worker groups between
@@ -68,7 +68,7 @@ spec:
           merge.io/pool: system
         containers:
           - name: ray-head
-            image: ghcr.io/your-org/merge-platform:0.1.0
+            image: ghcr.io/your-org/bci-platform:0.1.0
             imagePullPolicy: IfNotPresent
             env: &common-env
               - {name: MERGE_CONFIG, value: configs/distributed.yaml}
@@ -129,7 +129,7 @@ spec:
             - {key: cloud.google.com/gke-spot, operator: Equal, value: "true", effect: NoSchedule}
           containers:
             - name: ray-worker
-              image: ghcr.io/your-org/merge-platform:0.1.0
+              image: ghcr.io/your-org/bci-platform:0.1.0
               imagePullPolicy: IfNotPresent
               env: *common-env
               ports:
@@ -172,7 +172,7 @@ spec:
             # - {key: cloud.google.com/gke-spot, operator: Equal, value: "true", effect: NoSchedule}
           containers:
             - name: ray-worker
-              image: ghcr.io/your-org/merge-platform:0.1.0
+              image: ghcr.io/your-org/bci-platform:0.1.0
               imagePullPolicy: IfNotPresent
               env: *common-env
               ports:

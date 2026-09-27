@@ -52,7 +52,7 @@ cells = [
     code(r"""
     import numpy as np
     import ray
-    from merge_platform.ray_runtime.cluster import ensure_ray
+    from bci_platform.ray_runtime.cluster import ensure_ray
 
     # ensure_ray = the platform's single entry point to Ray (local, RAY_ADDRESS, or KubeRay).
     # It also disables Ray's uv-run runtime-env hook (which would rebuild a venv per worker).
@@ -123,8 +123,8 @@ cells = [
     for a given `(seed, n_tasks)`:
     """),
     code(r"""
-    from merge_platform.evaluation.metrics import bootstrap_ci, rmse
-    from merge_platform.ray_runtime.tasks import parallel_bootstrap_ci
+    from bci_platform.evaluation.metrics import bootstrap_ci, rmse
+    from bci_platform.ray_runtime.tasks import parallel_bootstrap_ci
 
     rng = np.random.default_rng(1)
     y = rng.normal(size=5000); yhat = y + rng.normal(scale=0.3, size=5000)
@@ -137,7 +137,7 @@ cells = [
     md(r"""
     Note the timings: Ray is *slower* than the serial loop here. The whole job is ~40 ms of
     NumPy, while each task pays scheduling + serialization overhead (≈ 0.1–1 ms) and the
-    first call pays for importing `merge_platform` in fresh worker processes. Distribute
+    first call pays for importing `bci_platform` in fresh worker processes. Distribute
     work only when per-task compute is much larger than that overhead: for an evaluation
     set this small the serial `evaluation.metrics.bootstrap_ci` is the better tool; the
     Ray version pays off for large evaluation sets and many resamples.
@@ -178,8 +178,8 @@ cells = [
     ray.cancel(ref, force=True)
     """),
     code(r"""
-    from merge_platform.config import PlatformConfig
-    from merge_platform.ray_runtime.resources import cuda_gpu_count, run_accelerated_example, select_resources
+    from bci_platform.config import PlatformConfig
+    from bci_platform.ray_runtime.resources import cuda_gpu_count, run_accelerated_example, select_resources
 
     cfg = PlatformConfig.for_tests(WORK)
     print("Ray GPU resource      :", ray.cluster_resources().get("GPU", 0),
@@ -232,7 +232,7 @@ cells = [
     `inference.batch.predict_pool` uses the same window over actor calls.
     """),
     code(r"""
-    from merge_platform.ray_runtime.tasks import bounded_map, square_sum_task
+    from bci_platform.ray_runtime.tasks import bounded_map, square_sum_task
 
     @ray.remote(num_cpus=1)
     def work(i: int) -> int:
@@ -351,8 +351,8 @@ cells = [
     not forget which experiments were already run.
     """),
     code(r"""
-    from merge_platform.data import generate_candidate_pool
-    from merge_platform.ray_runtime.tasks import start_experiment_simulator
+    from bci_platform.data import generate_candidate_pool
+    from bci_platform.ray_runtime.tasks import start_experiment_simulator
 
     pool = generate_candidate_pool(cfg)
     lab = start_experiment_simulator(cfg, pool, journal_path=WORK / "lab_journal.jsonl")
@@ -392,9 +392,9 @@ cells = [
     """),
     code(r"""
     import io
-    from merge_platform.data import ArrayDataset, initial_observations, make_oracle, records_to_frame, train_val_split
-    from merge_platform.training import Trainer, resolve_checkpoint
-    from merge_platform.inference import Predictor
+    from bci_platform.data import ArrayDataset, initial_observations, make_oracle, records_to_frame, train_val_split
+    from bci_platform.training import Trainer, resolve_checkpoint
+    from bci_platform.inference import Predictor
 
     frame = records_to_frame(initial_observations(pool, make_oracle(cfg), 300, seed=0))
     tr, va = train_val_split(frame, 0.2, seed=0)
@@ -481,7 +481,7 @@ cells = [
     in-process reference `predict_pool_local` using the identical shard/seed schedule:
     """),
     code(r"""
-    from merge_platform.inference.batch import predict_pool, predict_pool_local
+    from bci_platform.inference.batch import predict_pool, predict_pool_local
 
     t0 = time.perf_counter()
     scored, stats = predict_pool(result.checkpoint_path, pool, n_actors=2, shard_size=500,
@@ -498,13 +498,13 @@ cells = [
 
     | Concept | Where |
     |---|---|
-    | connecting to Ray (local / `RAY_ADDRESS` / KubeRay), runtime env | `src/merge_platform/ray_runtime/cluster.py` — `ensure_ray`, `shutdown_ray`, `_disable_uv_run_hook` |
-    | resource selection, CUDA vs Metal GPU, dynamic `.options` | `src/merge_platform/ray_runtime/resources.py` — `select_resources`, `cuda_gpu_count`, `WorkerResources.remote_options`, `run_accelerated_example` |
-    | tasks + object store + retries | `src/merge_platform/ray_runtime/tasks.py` — `parallel_bootstrap_ci`, `_bootstrap_chunk` (`retry_exceptions=[TransientTaskError]`) |
+    | connecting to Ray (local / `RAY_ADDRESS` / KubeRay), runtime env | `src/bci_platform/ray_runtime/cluster.py` — `ensure_ray`, `shutdown_ray`, `_disable_uv_run_hook` |
+    | resource selection, CUDA vs Metal GPU, dynamic `.options` | `src/bci_platform/ray_runtime/resources.py` — `select_resources`, `cuda_gpu_count`, `WorkerResources.remote_options`, `run_accelerated_example` |
+    | tasks + object store + retries | `src/bci_platform/ray_runtime/tasks.py` — `parallel_bootstrap_ci`, `_bootstrap_chunk` (`retry_exceptions=[TransientTaskError]`) |
     | backpressure | `ray_runtime/tasks.py::bounded_map`, `inference/batch.py::predict_pool` (`max_in_flight`) |
     | stateful actor, at-most-once semantics, journal | `ray_runtime/tasks.py` — `ExperimentSimulator`, `start_experiment_simulator` |
-    | actor model cache | `src/merge_platform/inference/batch.py` — `PredictorActor`, `actor_resources`, `shard_seed` |
-    | Ray Train on top of these primitives | `src/merge_platform/training/distributed.py` (notebook 04) |
+    | actor model cache | `src/bci_platform/inference/batch.py` — `PredictorActor`, `actor_resources`, `shard_seed` |
+    | Ray Train on top of these primitives | `src/bci_platform/training/distributed.py` (notebook 04) |
 
     ## 10. Failure modes
 

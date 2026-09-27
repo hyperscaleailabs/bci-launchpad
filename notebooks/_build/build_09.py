@@ -68,15 +68,15 @@ cells = [
     preamble("nb09"),
     code(
         r"""
-        from merge_platform.active_learning import (apply_constraints, default_constraints, expected_improvement,
+        from bci_platform.active_learning import (apply_constraints, default_constraints, expected_improvement,
                                                     MaxCost, select_batch, thompson, ucb)
-        from merge_platform.config import PlatformConfig
-        from merge_platform.data.datasets import ArrayDataset, RoundStore, train_val_split
-        from merge_platform.data.generation import (generate_candidate_pool, initial_observations, make_oracle,
+        from bci_platform.config import PlatformConfig
+        from bci_platform.data.datasets import ArrayDataset, RoundStore, train_val_split
+        from bci_platform.data.generation import (generate_candidate_pool, initial_observations, make_oracle,
                                                     measure_candidates, pool_features)
-        from merge_platform.evaluation import rmse
-        from merge_platform.inference.batch import predict_pool_local
-        from merge_platform.training import Trainer
+        from bci_platform.evaluation import rmse
+        from bci_platform.inference.batch import predict_pool_local
+        from bci_platform.training import Trainer
 
         # 1-D illustration of the acquisition functions on a made-up posterior
         x = np.linspace(0, 1, 400)
@@ -297,12 +297,12 @@ cells = [
 
         | Concept | Where |
         |---|---|
-        | UCB / EI / Thompson / greedy / uncertainty, deterministic ranking | `src/merge_platform/active_learning/acquisition.py` → `ucb`, `expected_improvement`, `thompson`, `acquisition_scores`, `rank_candidates` |
-        | domain constraints, rejection audit | `src/merge_platform/active_learning/constraints.py` → `FeatureBounds`, `MaxCost`, `ExcludeIds`, `apply_constraints`, `ConstraintReport` |
-        | one decision step, diversity, versioned selection | `src/merge_platform/active_learning/loop.py` → `select_batch`, `SelectionResult.selection_hash`, `write_selection` |
-        | pool scoring with MC dropout | `src/merge_platform/inference/batch.py` → `predict_pool` (Ray) / `predict_pool_local` |
-        | running the "experiment", new immutable round | `src/merge_platform/data/generation.py` → `measure_candidates`; `data/datasets.py` → `RoundStore.write_round` |
-        | the same loop as Dagster assets | `candidate_predictions → selected_experiments → new_experimental_results` in `src/merge_platform/orchestration/`, `make closed-loop` |
+        | UCB / EI / Thompson / greedy / uncertainty, deterministic ranking | `src/bci_platform/active_learning/acquisition.py` → `ucb`, `expected_improvement`, `thompson`, `acquisition_scores`, `rank_candidates` |
+        | domain constraints, rejection audit | `src/bci_platform/active_learning/constraints.py` → `FeatureBounds`, `MaxCost`, `ExcludeIds`, `apply_constraints`, `ConstraintReport` |
+        | one decision step, diversity, versioned selection | `src/bci_platform/active_learning/loop.py` → `select_batch`, `SelectionResult.selection_hash`, `write_selection` |
+        | pool scoring with MC dropout | `src/bci_platform/inference/batch.py` → `predict_pool` (Ray) / `predict_pool_local` |
+        | running the "experiment", new immutable round | `src/bci_platform/data/generation.py` → `measure_candidates`; `data/datasets.py` → `RoundStore.write_round` |
+        | the same loop as Dagster assets | `candidate_predictions → selected_experiments → new_experimental_results` in `src/bci_platform/orchestration/`, `make closed-loop` |
 
         ## Failure modes
 

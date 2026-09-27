@@ -2,7 +2,7 @@
 
 These manifests show how the local demo maps onto a production cluster. They
 are examples: the demo itself needs no Kubernetes. Image
-`ghcr.io/your-org/merge-platform:0.1.0` is the image built from
+`ghcr.io/your-org/bci-platform:0.1.0` is the image built from
 `infra/docker/Dockerfile`; replace the registry, node-pool labels and storage
 class with your own.
 
@@ -10,7 +10,7 @@ class with your own.
 |------|------------|
 | `raycluster.yaml` | Long-lived `RayCluster`: head + autoscaled CPU worker group + GPU worker group (scale-to-zero), plus the shared RWX `PersistentVolumeClaim`. |
 | `rayjob.yaml` | `RayJob`: runs `python scripts/run_training.py --config configs/distributed.yaml` on an ephemeral cluster that is deleted afterwards. |
-| `rayservice.yaml` | `RayService`: Ray Serve app `merge_platform.inference.serve:app`, with blue/green cluster upgrades. |
+| `rayservice.yaml` | `RayService`: Ray Serve app `bci_platform.inference.serve:app`, with blue/green cluster upgrades. |
 | `dagster-values.yaml` | Helm values sketch for the Dagster control plane (`dagster/dagster` chart), pointing at the Ray cluster via `RAY_ADDRESS`. |
 
 ## Topology
@@ -20,7 +20,7 @@ flowchart LR
   subgraph CP["Control plane (node pool: system, on-demand)"]
     DW[Dagster webserver]
     DD[Dagster daemon<br/>schedules · sensors · run queue]
-    UC[User code server<br/>merge_platform.orchestration.definitions]
+    UC[User code server<br/>bci_platform.orchestration.definitions]
     RP[Run pods<br/>K8sRunLauncher · Ray client]
     PG[(Postgres<br/>Dagster + MLflow metadata)]
     ML[MLflow server<br/>--serve-artifacts]

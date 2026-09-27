@@ -69,16 +69,16 @@ cells = [
         import ray
         from ray import serve
 
-        from merge_platform.config import PlatformConfig
-        from merge_platform.data.datasets import ArrayDataset, records_to_frame, train_val_split
-        from merge_platform.data.generation import (generate_candidate_pool, initial_observations,
+        from bci_platform.config import PlatformConfig
+        from bci_platform.data.datasets import ArrayDataset, records_to_frame, train_val_split
+        from bci_platform.data.generation import (generate_candidate_pool, initial_observations,
                                                     make_oracle, pool_features)
-        from merge_platform.inference import Predictor
-        from merge_platform.inference.batch import predict_pool, predict_pool_local
-        from merge_platform.inference.serve import run as serve_run
-        from merge_platform.models import count_parameters
-        from merge_platform.ray_runtime.cluster import ensure_ray
-        from merge_platform.training import Trainer
+        from bci_platform.inference import Predictor
+        from bci_platform.inference.batch import predict_pool, predict_pool_local
+        from bci_platform.inference.serve import run as serve_run
+        from bci_platform.models import count_parameters
+        from bci_platform.ray_runtime.cluster import ensure_ray
+        from bci_platform.training import Trainer
 
         MC = 30   # MC-dropout samples per prediction (cfg.evaluation.mc_samples)
         cfg = PlatformConfig.for_tests(WORK, **{"data.pool_size": 20_000, "model.hidden_dims": [256, 256, 128],
@@ -162,7 +162,7 @@ cells = [
 
         ## 3 · Online serving with Ray Serve
 
-        `merge_platform.inference.serve.run(..., blocking=False)` starts Serve on a port and deploys
+        `bci_platform.inference.serve.run(..., blocking=False)` starts Serve on a port and deploys
         `SurrogateModelDeployment` with the given `max_batch_size` / `num_replicas`. Calling it again
         with the same app name performs a **rolling replacement**.
         """
@@ -375,9 +375,9 @@ cells = [
 
         | Concept | Where |
         |---|---|
-        | framework-free model wrapper, MC dropout, raw units | `src/merge_platform/inference/predictor.py` → `Predictor.from_checkpoint`, `predict`, `predict_with_uncertainty` |
-        | batch scoring, object store, model-cache actors, `max_in_flight` backpressure | `src/merge_platform/inference/batch.py` → `predict_pool`, `PredictorActor`, `actor_resources`, `predict_pool_local` |
-        | Serve deployment, `@serve.batch`, metrics on `/model-info` | `src/merge_platform/inference/serve.py` → `SurrogateModelDeployment`, `_ServeMetrics` |
+        | framework-free model wrapper, MC dropout, raw units | `src/bci_platform/inference/predictor.py` → `Predictor.from_checkpoint`, `predict`, `predict_with_uncertainty` |
+        | batch scoring, object store, model-cache actors, `max_in_flight` backpressure | `src/bci_platform/inference/batch.py` → `predict_pool`, `PredictorActor`, `actor_resources`, `predict_pool_local` |
+        | Serve deployment, `@serve.batch`, metrics on `/model-info` | `src/bci_platform/inference/serve.py` → `SurrogateModelDeployment`, `_ServeMetrics` |
         | replica resources, queue caps, autoscaling config | `serve.py` → `replica_resources`, `build_app` |
         | start / rolling replacement | `serve.py` → `run(..., blocking=False)`; `make serve`, `scripts/query_model.py` |
         | Kubernetes shape | `infra/k8s/rayservice.yaml` (RayService, `serve-cpu` worker group) |

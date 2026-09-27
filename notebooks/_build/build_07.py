@@ -61,14 +61,14 @@ cells = [
         r"""
         from scipy.stats import norm
 
-        from merge_platform.config import PlatformConfig
-        from merge_platform.data.datasets import ArrayDataset, records_to_frame, train_val_split
-        from merge_platform.data.generation import generate_candidate_pool, make_oracle, measure_candidates
-        from merge_platform.data.schema import feature_columns
-        from merge_platform.evaluation import (bootstrap_ci, check_gates, coverage, evaluate,
+        from bci_platform.config import PlatformConfig
+        from bci_platform.data.datasets import ArrayDataset, records_to_frame, train_val_split
+        from bci_platform.data.generation import generate_candidate_pool, make_oracle, measure_candidates
+        from bci_platform.data.schema import feature_columns
+        from bci_platform.evaluation import (bootstrap_ci, check_gates, coverage, evaluate,
                                                paired_compare, regression_metrics, rmse)
-        from merge_platform.inference import Predictor
-        from merge_platform.training import Trainer
+        from bci_platform.inference import Predictor
+        from bci_platform.training import Trainer
 
         cfg = PlatformConfig.for_tests(WORK, **{"data.pool_size": 20_000,
                                                 "model.hidden_dims": [64, 64],
@@ -231,8 +231,8 @@ cells = [
     code(
         r"""
         import ray
-        from merge_platform.ray_runtime.cluster import ensure_ray
-        from merge_platform.ray_runtime.tasks import parallel_bootstrap_ci
+        from bci_platform.ray_runtime.cluster import ensure_ray
+        from bci_platform.ray_runtime.tasks import parallel_bootstrap_ci
 
         ensure_ray(num_cpus=4, log_to_driver=False)
         print("serial   :", np.round(bootstrap_ci(rmse, y_test, pA, n=2000, seed=0), 4))
@@ -463,7 +463,7 @@ cells = [
         r"""
         # Candidate B vs incumbent A, both scored on the clean test set, in the units of ONE dataset-owned
         # scale (the clean development data) -- not B's own (clipped, narrower) training statistics.
-        from merge_platform.evaluation import TargetScale
+        from bci_platform.evaluation import TargetScale
 
         scale = TargetScale.from_targets(dev["response"], source="clean development data (rows 0-2999)")
         gate_cfg = cfg
@@ -505,13 +505,13 @@ cells = [
 
         | Concept | Where |
         |---|---|
-        | stable, leakage-free validation split across rounds | `src/merge_platform/data/datasets.py` → `train_val_split(strategy="hash")`; `"newest_round"` for prospective checks |
-        | normaliser fitted on training rows only | `src/merge_platform/training/trainer.py` → `Trainer.setup` (`Normalizer.fit(train_ds.X, train_ds.y)`) |
-        | metrics + bootstrap CI | `src/merge_platform/evaluation/metrics.py` → `rmse`, `coverage`, `nll_gaussian`, `bootstrap_ci` |
-        | paired bootstrap | `src/merge_platform/evaluation/comparison.py` → `paired_compare`, `ComparisonResult.b_better` |
-        | gates + report artifacts | `src/merge_platform/evaluation/evaluator.py` → `evaluate`, `check_gates`; `reporting.py` → `write_evaluation` (`metrics.json`, `report.md`, `predictions.parquet`, `comparison.json`) |
-        | parallel resampling | `src/merge_platform/ray_runtime/tasks.py` → `parallel_bootstrap_ci` |
-        | promotion only after the gate | `src/merge_platform/tracking/registry.py` → `ModelRegistry.promote_if_passed` |
+        | stable, leakage-free validation split across rounds | `src/bci_platform/data/datasets.py` → `train_val_split(strategy="hash")`; `"newest_round"` for prospective checks |
+        | normaliser fitted on training rows only | `src/bci_platform/training/trainer.py` → `Trainer.setup` (`Normalizer.fit(train_ds.X, train_ds.y)`) |
+        | metrics + bootstrap CI | `src/bci_platform/evaluation/metrics.py` → `rmse`, `coverage`, `nll_gaussian`, `bootstrap_ci` |
+        | paired bootstrap | `src/bci_platform/evaluation/comparison.py` → `paired_compare`, `ComparisonResult.b_better` |
+        | gates + report artifacts | `src/bci_platform/evaluation/evaluator.py` → `evaluate`, `check_gates`; `reporting.py` → `write_evaluation` (`metrics.json`, `report.md`, `predictions.parquet`, `comparison.json`) |
+        | parallel resampling | `src/bci_platform/ray_runtime/tasks.py` → `parallel_bootstrap_ci` |
+        | promotion only after the gate | `src/bci_platform/tracking/registry.py` → `ModelRegistry.promote_if_passed` |
 
         ## Failure modes
 

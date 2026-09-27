@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from merge_platform.config import PlatformConfig
-from merge_platform.ray_runtime import resources as R
+from bci_platform.config import PlatformConfig
+from bci_platform.ray_runtime import resources as R
 
 
 @pytest.fixture

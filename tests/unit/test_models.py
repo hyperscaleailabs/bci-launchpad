@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 import torch
 
-from merge_platform.config import PlatformConfig
-from merge_platform.models import (
+from bci_platform.config import PlatformConfig
+from bci_platform.models import (
     ResidualMLP,
     build_model,
     count_parameters,

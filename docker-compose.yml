@@ -25,10 +25,10 @@
 #     (Ray Train RunConfig(storage_path="s3://...")).
 # Those services are deliberately NOT added here; see infra/k8s/README.md.
 
-name: merge-platform
+name: bci-platform
 
 x-app-image: &app-image
-  image: merge-platform:dev
+  image: bci-platform:dev
   build:
     context: .
     dockerfile: infra/docker/Dockerfile
@@ -70,7 +70,7 @@ services:
     ports:
       - "${RAY_DASHBOARD_PORT:-8265}:8265"   # dashboard + job submission API
       - "${RAY_CLIENT_PORT:-10001}:10001"    # Ray client (ray://localhost:10001)
-      - "${RAY_SERVE_PORT:-8000}:8000"       # Ray Serve (merge_platform.inference.serve:app)
+      - "${RAY_SERVE_PORT:-8000}:8000"       # Ray Serve (bci_platform.inference.serve:app)
       - "${RAY_METRICS_PORT:-8080}:8080"     # Prometheus metrics export
     volumes: *app-volumes
     shm_size: ${RAY_SHM_SIZE:-2gb}          # Ray object store lives in /dev/shm

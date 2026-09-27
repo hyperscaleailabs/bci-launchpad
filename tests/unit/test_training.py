@@ -6,10 +6,10 @@ import numpy as np
 import pytest
 import torch
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import ArrayDataset
-from merge_platform.inference import Predictor
-from merge_platform.training import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import ArrayDataset
+from bci_platform.inference import Predictor
+from bci_platform.training import (
     SimulatedWorkerFailure,
     Trainer,
     TrainResult,

@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import (
     SyntheticOracle,
     content_hash,
     generate_candidate_pool,
@@ -14,7 +14,7 @@ from merge_platform.data import (
     measure_candidates,
     records_to_frame,
 )
-from merge_platform.hashing import hash_dataframe
+from bci_platform.hashing import hash_dataframe
 
 
 def test_pool_is_deterministic_and_bounded(session_cfg: PlatformConfig, pool: pd.DataFrame) -> None:
@@ -84,7 +84,7 @@ def test_make_oracle_uses_pool_seed() -> None:
 
 
 def test_hash_split_is_stable_across_rounds(obs_frame: pd.DataFrame) -> None:
-    from merge_platform.data import train_val_split
+    from bci_platform.data import train_val_split
 
     small = obs_frame.iloc[:150]
     tr_s, va_s = train_val_split(small, 0.2, seed=0)
@@ -103,7 +103,7 @@ def test_hash_split_is_stable_across_rounds(obs_frame: pd.DataFrame) -> None:
 
 
 def test_other_split_strategies(obs_frame: pd.DataFrame) -> None:
-    from merge_platform.data import train_val_split
+    from bci_platform.data import train_val_split
 
     tr, va = train_val_split(obs_frame, 0.2, seed=0, strategy="random")
     assert len(va) == 60 and len(tr) == 240

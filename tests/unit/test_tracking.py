@@ -7,11 +7,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from merge_platform.config import REPO_ROOT, PlatformConfig
-from merge_platform.evaluation import GateDecision
-from merge_platform.inference import Predictor
-from merge_platform.tracking import ModelRegistry, PromotionError, Tracker, resolve_tracking_uri
-from merge_platform.training import TrainResult
+from bci_platform.config import REPO_ROOT, PlatformConfig
+from bci_platform.evaluation import GateDecision
+from bci_platform.inference import Predictor
+from bci_platform.tracking import ModelRegistry, PromotionError, Tracker, resolve_tracking_uri
+from bci_platform.training import TrainResult
 
 
 @pytest.fixture

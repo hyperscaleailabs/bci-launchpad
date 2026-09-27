@@ -14,9 +14,9 @@ import pytest
 import ray
 from ray.exceptions import ActorDiedError, ActorUnavailableError
 
-from merge_platform.config import PlatformConfig
-from merge_platform.orchestration.pipeline import RayCompute
-from merge_platform.ray_runtime import tasks
+from bci_platform.config import PlatformConfig
+from bci_platform.orchestration.pipeline import RayCompute
+from bci_platform.ray_runtime import tasks
 
 
 class _Method:

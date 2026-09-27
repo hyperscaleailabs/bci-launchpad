@@ -9,17 +9,17 @@ import pandas as pd
 import pytest
 import ray
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import (
     generate_candidate_pool,
     initial_observations,
     make_oracle,
     records_to_frame,
 )
-from merge_platform.inference import Predictor
-from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
-from merge_platform.ray_runtime.tasks import start_experiment_simulator
-from merge_platform.training.distributed import distributed_info, train_distributed
+from bci_platform.inference import Predictor
+from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+from bci_platform.ray_runtime.tasks import start_experiment_simulator
+from bci_platform.training.distributed import distributed_info, train_distributed
 
 pytestmark = pytest.mark.integration
 
@@ -90,8 +90,8 @@ def test_restartable_actors_take_no_object_store_constructor_args(
     """Simulator + predictor actors are rebuilt from durable / per-call inputs after a crash."""
     import time
 
-    from merge_platform.inference.batch import predict_pool, predict_pool_local
-    from merge_platform.training import Trainer
+    from bci_platform.inference.batch import predict_pool, predict_pool_local
+    from bci_platform.training import Trainer
 
     cfg = PlatformConfig.for_tests(tmp_path, **{"data.pool_size": 300, "training.epochs": 1})
     pool = generate_candidate_pool(cfg)
@@ -116,7 +116,7 @@ def test_restartable_actors_take_no_object_store_constructor_args(
     ray.kill(sim)
 
     frame = records_to_frame(initial_observations(pool, make_oracle(cfg), 120, seed=0))
-    from merge_platform.data import ArrayDataset
+    from bci_platform.data import ArrayDataset
 
     ds = ArrayDataset.from_frame(frame, dataset_hash="t")
     ckpt = Trainer(cfg).train(ds, None, checkpoint_dir=tmp_path / "ckpt").checkpoint_path

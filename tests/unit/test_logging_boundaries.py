@@ -4,7 +4,7 @@ import json
 import subprocess
 import sys
 
-from merge_platform.logging import bound_ids, configure_logging, get_logger
+from bci_platform.logging import bound_ids, configure_logging, get_logger
 
 
 def test_json_logging_binds_ids(capsys) -> None:
@@ -25,8 +25,8 @@ def test_json_logging_binds_ids(capsys) -> None:
 def test_scientific_code_does_not_import_orchestration_frameworks() -> None:
     code = (
         "import sys\n"
-        "import merge_platform.data, merge_platform.models, merge_platform.evaluation\n"
-        "import merge_platform.training, merge_platform.inference.predictor\n"
+        "import bci_platform.data, bci_platform.models, bci_platform.evaluation\n"
+        "import bci_platform.training, bci_platform.inference.predictor\n"
         "bad = [m for m in ('ray', 'dagster', 'mlflow') if m in sys.modules]\n"
         "print(','.join(bad))\n"
     )

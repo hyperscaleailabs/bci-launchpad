@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from merge_platform.data import (
+from bci_platform.data import (
     DataValidationError,
     ExperimentRecord,
     RoundManifest,

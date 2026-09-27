@@ -64,9 +64,9 @@ cells = [
         from torch import nn
 
         jax.config.update("jax_enable_x64", True)        # float64 available for exact gradient comparisons
-        from merge_platform.config import PlatformConfig
-        from merge_platform.data.generation import generate_candidate_pool, make_oracle, pool_features
-        from merge_platform.data.normalization import Normalizer
+        from bci_platform.config import PlatformConfig
+        from bci_platform.data.generation import generate_candidate_pool, make_oracle, pool_features
+        from bci_platform.data.normalization import Normalizer
 
         cfg = PlatformConfig.for_tests(WORK, **{"data.pool_size": 1_024})
         pool = generate_candidate_pool(cfg)
@@ -400,9 +400,9 @@ cells = [
 
         ## Connection to this repository
 
-        * The training stack is PyTorch only: `src/merge_platform/models/mlp.py` (`ResidualMLP`,
-          `build_model`), `src/merge_platform/training/trainer.py` (`Trainer`, DDP wrapping,
-          `DistributedSampler`, all-reduced validation statistics), `src/merge_platform/training/distributed.py`
+        * The training stack is PyTorch only: `src/bci_platform/models/mlp.py` (`ResidualMLP`,
+          `build_model`), `src/bci_platform/training/trainer.py` (`Trainer`, DDP wrapping,
+          `DistributedSampler`, all-reduced validation statistics), `src/bci_platform/training/distributed.py`
           (`train_distributed`: Ray decides *where* workers run, DDP decides *how* gradients sync).
         * Explicit state in an object world: `Trainer._payload` / `load_checkpoint` capture model,
           optimizer, normaliser and **RNG state** (`training/config.py` → `get_rng_state`, `set_rng_state`) —
@@ -435,7 +435,7 @@ cells = [
 
         1. Add dropout to the JAX `mlp` using an explicit `key` argument and implement MC-dropout
            prediction with `jax.vmap` over 30 split keys. Compare the result's std with
-           `merge_platform.models.mc_dropout_predict` on a PyTorch model with the same weights (masks will
+           `bci_platform.models.mc_dropout_predict` on a PyTorch model with the same weights (masks will
            differ; distributions should not).
         2. Use `jax.vmap` over a *learning-rate axis* to train 8 copies of the model with different
            learning rates in one jitted call. What would the PyTorch equivalent look like?

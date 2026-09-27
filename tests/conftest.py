@@ -10,8 +10,8 @@ import pytest
 
 os.environ.setdefault("MERGE_LOG_LEVEL", "WARNING")
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import (
     ArrayDataset,
     RoundStore,
     SyntheticOracle,
@@ -21,7 +21,7 @@ from merge_platform.data import (
     records_to_frame,
     train_val_split,
 )
-from merge_platform.training import Trainer, TrainResult
+from bci_platform.training import Trainer, TrainResult
 
 
 @pytest.fixture

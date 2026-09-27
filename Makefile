@@ -65,7 +65,7 @@ typecheck: ## mypy
 
 validate: ## Validate the Dagster code location
 	@mkdir -p "$(DAGSTER_HOME)"
-	$(RUN) dagster definitions validate -m merge_platform.orchestration.definitions
+	$(RUN) dagster definitions validate -m bci_platform.orchestration.definitions
 
 # ----------------------------------------------------------------------------- services
 ray: ## Start a local Ray head node with dashboard (then use RAY_ADDRESS=auto)
@@ -78,7 +78,7 @@ ray-stop: ## Stop the local Ray node started by `make ray`
 
 dagster: ## Dagster UI + daemon (http://localhost:3000); DAGSTER_HOME=./dagster_home
 	@mkdir -p "$(DAGSTER_HOME)"
-	$(RUN) dagster dev -m merge_platform.orchestration.definitions -p $(DAGSTER_PORT)
+	$(RUN) dagster dev -m bci_platform.orchestration.definitions -p $(DAGSTER_PORT)
 
 mlflow: ## MLflow UI/server on the same SQLite db + artifact dir the pipeline writes
 	$(RUN) mlflow server --backend-store-uri sqlite:///$(CURDIR)/mlflow.db \
@@ -103,15 +103,15 @@ failure-demo: ## Worker failure -> checkpoint recovery; experiments are recorded
 
 serve: ## Serve the *production* model from the registry with Ray Serve (Ctrl-C to stop)
 	@resolved=$$($(RUN) python -c "import sys; \
-	from merge_platform.config import load_config; \
-	from merge_platform.tracking import ModelRegistry; \
+	from bci_platform.config import load_config; \
+	from bci_platform.tracking import ModelRegistry; \
 	p = ModelRegistry(load_config($(if $(CONFIG),'$(CONFIG)',None))).production_version(); \
 	print(p.checkpoint_path, p.version) if p else sys.exit('error: no production model in the registry. ' \
 	'Models are promoted only when they pass the evaluation gates: run more rounds (make closed-loop) ' \
 	'and check the gate reasons in reports/ or MLflow.')" | tail -n 1); \
 	set -- $$resolved; \
 	echo "serving production model v$$2 ($$1)"; \
-	$(RUN) python -m merge_platform.inference.serve --checkpoint "$$1" --model-version "$$2" $(CONFIG_ARG)
+	$(RUN) python -m bci_platform.inference.serve --checkpoint "$$1" --model-version "$$2" $(CONFIG_ARG)
 
 query: ## Query the running model server (/health, /model-info, /predict, /predict_batch)
 	$(RUN) python scripts/query_model.py --url $(SERVE_URL)

@@ -12,7 +12,7 @@ cells = [
         Locally, `ray.init()` starts a one-node Ray cluster and every worker is a process on the laptop.
         In production the same code runs on a **Ray cluster that lives on Kubernetes** (via the KubeRay
         operator), with CPU and GPU node pools, autoscaling and shared storage. Nothing in
-        `merge_platform` changes — only *where* Ray's workers come from.
+        `bci_platform` changes — only *where* Ray's workers come from.
 
         This notebook (no Kubernetes cluster needed):
 
@@ -61,7 +61,7 @@ cells = [
         r"""
         import re
         import yaml
-        from merge_platform.config import REPO_ROOT
+        from bci_platform.config import REPO_ROOT
 
         K8S = REPO_ROOT / "infra" / "k8s"
         docs = {}
@@ -279,9 +279,9 @@ cells = [
     code(
         r"""
         import ray, torch
-        from merge_platform.config import PlatformConfig
-        from merge_platform.ray_runtime.cluster import ensure_ray
-        from merge_platform.ray_runtime.resources import (available_cpus, cuda_gpu_count, gpu_matmul_benchmark,
+        from bci_platform.config import PlatformConfig
+        from bci_platform.ray_runtime.cluster import ensure_ray
+        from bci_platform.ray_runtime.resources import (available_cpus, cuda_gpu_count, gpu_matmul_benchmark,
                                                           run_accelerated_example, select_resources)
 
         ensure_ray(num_cpus=6, log_to_driver=False)
@@ -340,7 +340,7 @@ cells = [
         | worker *processes* | worker *pods* in worker groups (`cpu`, `gpu`, `serve-cpu`) |
         | `select_resources(cfg)` → `ScalingConfig` | same call; on GPU pods `cuda_gpu_count()` > 0 → `use_gpu=True`, one worker per GPU |
         | `train_distributed(...)` via `make train` | `RayJob` running `scripts/run_training.py` on an ephemeral cluster |
-        | `serve.run(build_app(...))` via `make serve` | `RayService` with `import_path: merge_platform.inference.serve:app`, blue/green upgrades |
+        | `serve.run(build_app(...))` via `make serve` | `RayService` with `import_path: bci_platform.inference.serve:app`, blue/green upgrades |
         | `data/`, `artifacts/`, `reports/` on local disk | `ReadWriteMany` PVC `merge-shared` (or object storage) mounted at `/app/...` |
         | `sqlite:///mlflow.db` | MLflow Deployment with Postgres + bucket artifact store |
         | `dagster dev` | Dagster Helm chart (`dagster-values.yaml`); assets call Ray through `RayComputeResource` |
@@ -348,13 +348,13 @@ cells = [
         ## Connection to this repository
 
         * `infra/k8s/raycluster.yaml`, `rayjob.yaml`, `rayservice.yaml`, `dagster-values.yaml`, `infra/k8s/README.md`
-        * `src/merge_platform/ray_runtime/cluster.py` → `ensure_ray` (local vs `RAY_ADDRESS`)
-        * `src/merge_platform/ray_runtime/resources.py` → `select_resources`, `WorkerResources.scaling_config_kwargs`,
+        * `src/bci_platform/ray_runtime/cluster.py` → `ensure_ray` (local vs `RAY_ADDRESS`)
+        * `src/bci_platform/ray_runtime/resources.py` → `select_resources`, `WorkerResources.scaling_config_kwargs`,
           `cuda_gpu_count` (Apple-Metal caveat, remote probe via `_probe_cuda`), `gpu_matmul_benchmark`,
           `run_accelerated_example`
-        * `src/merge_platform/inference/batch.py` → `actor_resources`; `inference/serve.py` → `replica_resources`
+        * `src/bci_platform/inference/batch.py` → `actor_resources`; `inference/serve.py` → `replica_resources`
           (per-actor / per-replica requests derived from what the cluster has)
-        * `src/merge_platform/training/distributed.py` → `train_distributed` (Ray Train `ScalingConfig` from `select_resources`)
+        * `src/bci_platform/training/distributed.py` → `train_distributed` (Ray Train `ScalingConfig` from `select_resources`)
 
         ## Failure modes
 

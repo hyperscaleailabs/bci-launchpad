@@ -19,7 +19,7 @@ cells = [
     checkpoints, and restarts the group on failure.
 
     > *Ray determines where workers execute. PyTorch DDP determines how model replicas
-    > synchronize gradients.* — `src/merge_platform/training/distributed.py`
+    > synchronize gradients.* — `src/bci_platform/training/distributed.py`
 
     We (1) look at placement groups, (2) run a minimal `TorchTrainer` whose workers report
     what they observe (rank, world size, device, pid), (3) run the platform's
@@ -69,7 +69,7 @@ cells = [
     import ray.train
     import torch
     import torch.distributed as dist
-    from merge_platform.ray_runtime.cluster import ensure_ray
+    from bci_platform.ray_runtime.cluster import ensure_ray
 
     RAY_TMP = tempfile.mkdtemp(prefix="nba_ray_", dir="/tmp")    # short path we can delete afterwards
     res = ensure_ray(num_cpus=4, include_dashboard=False, log_to_driver=False,
@@ -155,8 +155,8 @@ cells = [
     `use_gpu` from CUDA availability, never from Ray's GPU count:
     """),
     code(r"""
-    from merge_platform.config import PlatformConfig
-    from merge_platform.ray_runtime.resources import select_resources
+    from bci_platform.config import PlatformConfig
+    from bci_platform.ray_runtime.resources import select_resources
 
     cfg = PlatformConfig.for_tests(WORK).with_overrides(**{"training.epochs": 4, "distributed.use_gpu": "auto"})
     wr = select_resources(cfg, num_workers=2)
@@ -166,7 +166,7 @@ cells = [
     md(r"""
     ## 4. The platform's `train_distributed`
 
-    `merge_platform.training.distributed.train_distributed(cfg, round_id=...)`:
+    `bci_platform.training.distributed.train_distributed(cfg, round_id=...)`:
 
     1. **Data movement** — reads the immutable round union from the `RoundStore` *once* on the
        driver, splits train/validation deterministically, and `ray.put`s both frames; every
@@ -182,7 +182,7 @@ cells = [
     First create a tiny immutable round store in the scratch directory:
     """),
     code(r"""
-    from merge_platform.data import RoundStore, generate_candidate_pool, initial_observations, make_oracle
+    from bci_platform.data import RoundStore, generate_candidate_pool, initial_observations, make_oracle
 
     store = RoundStore(cfg.paths.data_dir)                         # WORK/data
     pool = generate_candidate_pool(cfg)
@@ -191,7 +191,7 @@ cells = [
     print(f"round_000: {manifest.n_records} records, dataset id {store.dataset_hash(0)[:16]}…")
     """),
     code(r"""
-    from merge_platform.training.distributed import distributed_info, ray_train_storage, train_distributed
+    from bci_platform.training.distributed import distributed_info, ray_train_storage, train_distributed
 
     t0 = time.perf_counter()
     base = train_distributed(cfg, round_id=0, num_workers=2, run_name="nb04_baseline")
@@ -243,7 +243,7 @@ cells = [
                   "val_rmse failed+recovered": [h["val_rmse"] for h in rec.history]})
     """),
     code(r"""
-    from merge_platform.inference import Predictor
+    from bci_platform.inference import Predictor
 
     Xq = pool.head(500)
     p_base = Predictor.from_checkpoint(base.checkpoint_path).predict(Xq)
@@ -302,12 +302,12 @@ cells = [
 
     | Concept | Where |
     |---|---|
-    | driver: data `ray.put`, `ScalingConfig`, `RunConfig`, `FailureConfig`, `CheckpointConfig(num_to_keep)` | `src/merge_platform/training/distributed.py::train_distributed` |
+    | driver: data `ray.put`, `ScalingConfig`, `RunConfig`, `FailureConfig`, `CheckpointConfig(num_to_keep)` | `src/bci_platform/training/distributed.py::train_distributed` |
     | worker loop: `get_context()`, `get_checkpoint()`, `report()`, commit barrier, all-gather summary | `training/distributed.py::_train_loop_per_worker` |
     | reading the result | `training/distributed.py::distributed_info`, `param_digest`, `ray_train_storage` |
-    | DDP math, resume, failure injection | `src/merge_platform/training/trainer.py` — `Trainer.train(resume_from=, fail_at_epoch=, on_epoch_end=)`, `SimulatedWorkerFailure` |
-    | resource choice (CUDA vs Metal) | `src/merge_platform/ray_runtime/resources.py::select_resources`, `WorkerResources.scaling_config_kwargs` |
-    | Ray init (runtime env, faster Train health checks) | `src/merge_platform/ray_runtime/cluster.py::ensure_ray` (`RAY_TRAIN_HEALTH_CHECK_INTERVAL_S`) |
+    | DDP math, resume, failure injection | `src/bci_platform/training/trainer.py` — `Trainer.train(resume_from=, fail_at_epoch=, on_epoch_end=)`, `SimulatedWorkerFailure` |
+    | resource choice (CUDA vs Metal) | `src/bci_platform/ray_runtime/resources.py::select_resources`, `WorkerResources.scaling_config_kwargs` |
+    | Ray init (runtime env, faster Train health checks) | `src/bci_platform/ray_runtime/cluster.py::ensure_ray` (`RAY_TRAIN_HEALTH_CHECK_INTERVAL_S`) |
     | tests | `tests/integration/test_ray_train.py`, `tests/integration/test_failure_recovery.py` |
     | on Kubernetes | `infra/k8s/raycluster.yaml`, `infra/k8s/rayjob.yaml` (notebook 12) |
 

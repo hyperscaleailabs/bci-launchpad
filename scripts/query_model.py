@@ -41,7 +41,7 @@ def _load_candidates(pool_path: Path | None, n: int, n_features: int, seed: int)
 
 def _default_pool_path() -> Path | None:
     try:
-        from merge_platform.config import load_config
+        from bci_platform.config import load_config
 
         cfg = load_config()
         return cfg.paths.resolved().data_dir / "candidate_pool" / "pool.parquet"

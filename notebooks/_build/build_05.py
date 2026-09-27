@@ -326,7 +326,7 @@ cells = [
     ## 7. The real graph: bootstrap + two closed-loop rounds
 
     Now the platform itself, through its own orchestration entry points
-    (`src/merge_platform/orchestration/`):
+    (`src/bci_platform/orchestration/`):
 
     * `build_definitions(config_path=…, num_workers=2, n_inference_actors=1)` wires the 9 assets,
       3 jobs, sensor, schedule and the four resources (dependency injection: we point the
@@ -341,12 +341,12 @@ cells = [
     code(r"""
     import json, shutil
     import ray
-    from merge_platform.config import PlatformConfig
+    from bci_platform.config import PlatformConfig
     with warnings.catch_warnings(), contextlib.redirect_stderr(io.StringIO()):   # MLflow import-time warning
-        from merge_platform.orchestration import pipeline as P
-        from merge_platform.orchestration.definitions import build_definitions
-    from merge_platform.orchestration.jobs import ROUND_JOB, run_bootstrap, run_round
-    from merge_platform.ray_runtime.cluster import ensure_ray
+        from bci_platform.orchestration import pipeline as P
+        from bci_platform.orchestration.definitions import build_definitions
+    from bci_platform.orchestration.jobs import ROUND_JOB, run_bootstrap, run_round
+    from bci_platform.ray_runtime.cluster import ensure_ray
 
     RAY_TMP = tempfile.mkdtemp(prefix="nbc_ray_", dir="/tmp")    # short path (unix sockets) we delete at the end
     ensure_ray(num_cpus=4, include_dashboard=False, log_to_driver=False,
@@ -458,7 +458,7 @@ cells = [
     navigate Dagster → MLflow → checkpoint and back.
     """),
     code(r"""
-    from merge_platform.tracking import Tracker
+    from bci_platform.tracking import Tracker
 
     tracker = Tracker(cfg.tracking)
     for key in ("round_000", "round_001"):
@@ -479,7 +479,7 @@ cells = [
     """),
     code(r"""
     import dataclasses
-    from merge_platform.data import ImmutableRoundError
+    from bci_platform.data import ImmutableRoundError
 
     store = P.round_store(cfg)
     before = store.read_manifest(2).manifest_hash
@@ -498,7 +498,7 @@ cells = [
               if r.asset_materialization.partition == "round_001"))
 
     # A *different* batch for round_002 (e.g. chosen by a model re-trained after the lab ran) is refused.
-    from merge_platform.active_learning import select_batch, write_selection
+    from bci_platform.active_learning import select_batch, write_selection
     sel = results[1].output_for_node("selected_experiments")
     preds = pd.read_parquet(results[1].output_for_node("candidate_predictions").path)
     alt = select_batch(store.read_pool(), preds, store.observed_ids(1), cfg, round_id=2, beta=5.0,
@@ -523,8 +523,8 @@ cells = [
     """),
     code(r"""
     from dagster import build_schedule_context
-    from merge_platform.orchestration.resources import PlatformConfigResource, RoundStoreResource
-    from merge_platform.orchestration.sensors import new_round_sensor, nightly_retrain_schedule
+    from bci_platform.orchestration.resources import PlatformConfigResource, RoundStoreResource
+    from bci_platform.orchestration.sensors import new_round_sensor, nightly_retrain_schedule
 
     rs = {"round_store": RoundStoreResource(config=PlatformConfigResource(config_path=str(cfg_path)))}
     with build_sensor_context(instance=instance, resources=rs, cursor="1") as ctx:
@@ -543,7 +543,7 @@ cells = [
 
     | Concept | Where |
     |---|---|
-    | asset graph, metadata, retry policies (`COMPUTE_RETRY`, `LIGHT_RETRY`, none on the lab) | `src/merge_platform/orchestration/assets.py` |
+    | asset graph, metadata, retry policies (`COMPUTE_RETRY`, `LIGHT_RETRY`, none on the lab) | `src/bci_platform/orchestration/assets.py` |
     | step functions the assets wrap (no Dagster import) | `orchestration/pipeline.py` → `observe_round`, `build_training_dataset`, `train_model`, `evaluate_model`, `register_model`, `score_candidates`, `select_experiments`, `run_experiments` |
     | dynamic round partitions | `orchestration/partitions.py` → `rounds_partitions`, `ensure_round_partition` |
     | resources (Dagster → Ray/MLflow/RoundStore) | `orchestration/resources.py` → `RayComputeResource`, `TrackingResource`, `RoundStoreResource`, `PlatformConfigResource` |

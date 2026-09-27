@@ -54,14 +54,14 @@ cells = [
     code(
         r"""
         from scipy import stats
-        from merge_platform.config import PlatformConfig
-        from merge_platform.data.datasets import (ArrayDataset, RoundStore, records_to_frame, train_val_split)
-        from merge_platform.data.generation import (generate_candidate_pool, make_oracle, measure_candidates,
+        from bci_platform.config import PlatformConfig
+        from bci_platform.data.datasets import (ArrayDataset, RoundStore, records_to_frame, train_val_split)
+        from bci_platform.data.generation import (generate_candidate_pool, make_oracle, measure_candidates,
                                                     pool_features)
-        from merge_platform.data.schema import feature_columns
-        from merge_platform.evaluation import bootstrap_ci, coverage, rmse
-        from merge_platform.inference import Predictor
-        from merge_platform.training import Trainer
+        from bci_platform.data.schema import feature_columns
+        from bci_platform.evaluation import bootstrap_ci, coverage, rmse
+        from bci_platform.inference import Predictor
+        from bci_platform.training import Trainer
 
         cfg = PlatformConfig.for_tests(WORK, **{"data.pool_size": 20_000, "model.hidden_dims": [64, 64],
                                                 "training.epochs": 30, "evaluation.mc_samples": 20})
@@ -383,12 +383,12 @@ cells = [
 
         | Concept | Where |
         |---|---|
-        | heteroscedastic noise, noise-free mean (diagnostics) | `src/merge_platform/data/synthetic_oracle.py` → `SyntheticOracle.noise_std`, `.mean`, `.measure` |
-        | reproducible measurement noise per round | `src/merge_platform/data/generation.py` → `measure_candidates` (RNG from `(oracle.seed, round_id, seed)`) |
-        | failed experiments as data | `src/merge_platform/data/schema.py` → `ExperimentRecord.status`; `data/datasets.py` → `RoundStore.training_frame` (measured only) |
-        | epistemic uncertainty | `src/merge_platform/models/uncertainty.py` → `mc_dropout_predict` |
+        | heteroscedastic noise, noise-free mean (diagnostics) | `src/bci_platform/data/synthetic_oracle.py` → `SyntheticOracle.noise_std`, `.mean`, `.measure` |
+        | reproducible measurement noise per round | `src/bci_platform/data/generation.py` → `measure_candidates` (RNG from `(oracle.seed, round_id, seed)`) |
+        | failed experiments as data | `src/bci_platform/data/schema.py` → `ExperimentRecord.status`; `data/datasets.py` → `RoundStore.training_frame` (measured only) |
+        | epistemic uncertainty | `src/bci_platform/models/uncertainty.py` → `mc_dropout_predict` |
         | aleatoric term | `inference/predictor.py` → `predict_with_uncertainty(include_aleatoric=True)` (constant `residual_std`), or `training.loss: gaussian_nll` + `models/losses.py` → `gaussian_nll_loss` |
-        | split strategies and the batch-effect caveat | `src/merge_platform/data/datasets.py` → `train_val_split` (`hash` / `random` / `newest_round`) |
+        | split strategies and the batch-effect caveat | `src/bci_platform/data/datasets.py` → `train_val_split` (`hash` / `random` / `newest_round`) |
 
         ## Failure modes
 

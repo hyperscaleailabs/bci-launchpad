@@ -11,13 +11,13 @@ show a real multi-node Ray cluster driven by a separate Dagster control plane.
 | `Dockerfile` | One image for every service: `python:3.12-slim` + uv, `uv sync --frozen --no-default-groups` (no dev/notebook deps), copies `src/`, `configs/`, `scripts/`. |
 | `Dockerfile.dockerignore` | BuildKit build-context filter (keeps `.venv`, `data/`, `mlruns/` ... out of the context). |
 | `dagster.yaml` | Dagster instance: SQLite storage on the `dagster_storage` volume, `QueuedRunCoordinator`, local compute logs. |
-| `workspace.yaml` | Loads the code location `merge_platform.orchestration.definitions`. |
+| `workspace.yaml` | Loads the code location `bci_platform.orchestration.definitions`. |
 | `healthcheck.py` | Stdlib-only HTTP/process healthcheck (slim image has no curl/procps). |
 | `../../docker-compose.yml` | `ray-head`, `ray-worker` (scalable), `ray-worker-gpu` (profile `gpu`), `dagster-webserver`, `dagster-daemon`, `mlflow`. |
 
 Why a single image: the Ray client inside the Dagster containers and the Ray
 cluster must run the same Python and Ray versions, and Ray workers must be able
-to import `merge_platform`. One image built from `uv.lock` guarantees both.
+to import `bci_platform`. One image built from `uv.lock` guarantees both.
 
 ## Usage
 
@@ -36,7 +36,7 @@ docker compose down            # keep volumes;  `down -v` wipes data/mlflow/dags
 | Dagster | http://localhost:3000 |
 | MLflow | http://localhost:5000 |
 | Ray dashboard / Job API | http://localhost:8265 |
-| Ray Serve (`merge_platform.inference.serve:app`) | http://localhost:8000 |
+| Ray Serve (`bci_platform.inference.serve:app`) | http://localhost:8000 |
 | Ray metrics (Prometheus format) | http://localhost:8080/metrics |
 | Ray client from the host | `RAY_ADDRESS=ray://localhost:10001` |
 

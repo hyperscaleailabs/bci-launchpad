@@ -26,10 +26,10 @@ from pathlib import Path
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
-from merge_platform.config import load_config
-from merge_platform.data import round_key
-from merge_platform.orchestration import pipeline as P
-from merge_platform.tracking import ModelRegistry, Tracker
+from bci_platform.config import load_config
+from bci_platform.data import round_key
+from bci_platform.orchestration import pipeline as P
+from bci_platform.tracking import ModelRegistry, Tracker
 
 
 def main(argv: list[str] | None = None) -> int:

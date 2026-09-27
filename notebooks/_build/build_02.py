@@ -93,10 +93,10 @@ from pathlib import Path
 import torch
 import torch.distributed as dist
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import (ArrayDataset, generate_candidate_pool, initial_observations,
+from bci_platform.config import PlatformConfig
+from bci_platform.data import (ArrayDataset, generate_candidate_pool, initial_observations,
                                  make_oracle, records_to_frame, train_val_split)
-from merge_platform.training import Trainer
+from bci_platform.training import Trainer
 
 out_dir = Path(sys.argv[1])
 torch.set_num_threads(1)
@@ -387,7 +387,7 @@ cells = [
     md(r"""
     ## 7. The repository `Trainer` under DDP
 
-    `merge_platform.training.trainer.Trainer` needs no code change to run distributed: it
+    `bci_platform.training.trainer.Trainer` needs no code change to run distributed: it
     checks `torch.distributed.is_initialized()` and then wraps the model in
     `DistributedDataParallel`, uses `DistributedSampler` (with `set_epoch`), all-reduces
     its loss/metric sufficient statistics, and lets only rank 0 write checkpoints (the
@@ -422,12 +422,12 @@ cells = [
 
     | Concept | Where |
     |---|---|
-    | DDP wrap, `DistributedSampler`, `set_epoch`, rank-0 checkpoints, `barrier` | `src/merge_platform/training/trainer.py` — `Trainer.setup`, `Trainer._train_loader`, `Trainer.save_checkpoint` |
+    | DDP wrap, `DistributedSampler`, `set_epoch`, rank-0 checkpoints, `barrier` | `src/bci_platform/training/trainer.py` — `Trainer.setup`, `Trainer._train_loader`, `Trainer.save_checkpoint` |
     | exact distributed validation (no padding, all-reduced sufficient stats) | `Trainer.validate`, `Trainer._all_reduce` |
     | rank / world size discovery | `trainer.py::_dist_info` (reads `torch.distributed`, `LOCAL_RANK`) |
     | per-rank dropout streams | `Trainer.setup` (`torch.manual_seed(seed + 7919*(rank+1))`) |
-    | device per local rank | `src/merge_platform/training/config.py::resolve_device` (`cuda:<local_rank>`) |
-    | effective batch size recorded | `src/merge_platform/training/distributed.py::train_distributed` (`distributed.global_batch_size`) |
+    | device per local rank | `src/bci_platform/training/config.py::resolve_device` (`cuda:<local_rank>`) |
+    | effective batch size recorded | `src/bci_platform/training/distributed.py::train_distributed` (`distributed.global_batch_size`) |
     | 2-process gloo test without Ray | `tests/integration/test_ddp_trainer.py` |
     | who launches the processes | Ray Train (`training/distributed.py`, notebook 04) — or `torchrun`, as here |
 

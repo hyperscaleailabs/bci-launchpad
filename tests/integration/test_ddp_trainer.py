@@ -18,8 +18,8 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
-from merge_platform.config import PlatformConfig
-from merge_platform.data import (
+from bci_platform.config import PlatformConfig
+from bci_platform.data import (
     ArrayDataset,
     generate_candidate_pool,
     initial_observations,
@@ -27,8 +27,8 @@ from merge_platform.data import (
     records_to_frame,
     train_val_split,
 )
-from merge_platform.inference import Predictor
-from merge_platform.training import SimulatedWorkerFailure, Trainer, latest_checkpoint
+from bci_platform.inference import Predictor
+from bci_platform.training import SimulatedWorkerFailure, Trainer, latest_checkpoint
 
 pytestmark = pytest.mark.integration
 

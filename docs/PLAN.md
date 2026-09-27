@@ -57,7 +57,7 @@ orchestration/   thin Dagster assets/resources calling the above       (dagster)
 
 ## Shared contracts
 
-### Config — `merge_platform.config` (owned by `core-ml`)
+### Config — `bci_platform.config` (owned by `core-ml`)
 
 `PlatformConfig` (pydantic) loaded by `load_config(path | None)` from
 `configs/{local,distributed,gpu}.yaml`, env var `MERGE_CONFIG` selects the file.
@@ -83,7 +83,7 @@ serve: {num_replicas: 1, max_batch_size: 64, batch_wait_timeout_s: 0.01, port: 8
 Note: `max_rmse` is on standardized responses (targets are z-scored with
 training statistics stored in the checkpoint).
 
-### Data — `merge_platform.data`
+### Data — `bci_platform.data`
 
 * `schema.ExperimentRecord` (pydantic, fields per handoff §4) +
   `schema.RoundManifest{round_id, n_records, dataset_hash, parent_hashes,
@@ -102,7 +102,7 @@ training statistics stored in the checkpoint).
   Layout: `data/rounds/round_000/{observations.parquet, manifest.json}`, pool at
   `data/candidate_pool/{pool.parquet, manifest.json}`.
 * `validation.validate_frame(df) -> ValidationReport` (finite, ranges, dupes, schema).
-* Hashing helpers in `merge_platform.hashing`: `hash_dataframe`, `hash_config`,
+* Hashing helpers in `bci_platform.hashing`: `hash_dataframe`, `hash_config`,
   `hash_file`, `git_sha()`.
 
 ### Model / training

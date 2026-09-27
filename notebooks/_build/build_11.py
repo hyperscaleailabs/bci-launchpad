@@ -66,13 +66,13 @@ cells = [
         import ray
         import torch
 
-        from merge_platform.config import PlatformConfig
-        from merge_platform.data.datasets import (ArrayDataset, ImmutableRoundError, RoundSequenceError, RoundStore,
+        from bci_platform.config import PlatformConfig
+        from bci_platform.data.datasets import (ArrayDataset, ImmutableRoundError, RoundSequenceError, RoundStore,
                                                   train_val_split)
-        from merge_platform.data.generation import generate_candidate_pool, initial_observations, make_oracle, measure_candidates
-        from merge_platform.ray_runtime.cluster import ensure_ray
-        from merge_platform.ray_runtime.tasks import TransientTaskError, start_experiment_simulator
-        from merge_platform.training import SimulatedWorkerFailure, Trainer, load_checkpoint
+        from bci_platform.data.generation import generate_candidate_pool, initial_observations, make_oracle, measure_candidates
+        from bci_platform.ray_runtime.cluster import ensure_ray
+        from bci_platform.ray_runtime.tasks import TransientTaskError, start_experiment_simulator
+        from bci_platform.training import SimulatedWorkerFailure, Trainer, load_checkpoint
 
         cfg = PlatformConfig.for_tests(WORK, **{"data.pool_size": 2_000, "training.epochs": 6})
         pool = generate_candidate_pool(cfg)
@@ -393,15 +393,15 @@ cells = [
 
         | Mechanism | Where | Semantics |
         |---|---|---|
-        | write-once rounds, content hash, atomic rename, read-only files | `src/merge_platform/data/datasets.py` → `RoundStore.write_round`, `ImmutableRoundError`, `RoundSequenceError`, `verify_chain` | exactly-once *effect* |
-        | reproducible measurement noise per `(oracle seed, round, seed)` | `src/merge_platform/data/generation.py` → `measure_candidates` | makes a retried materialisation identical |
-        | measurement log + journal, `max_task_retries=0` | `src/merge_platform/ray_runtime/tasks.py` → `ExperimentSimulator`, `start_experiment_simulator` | at-most-once physical execution, idempotent requests |
+        | write-once rounds, content hash, atomic rename, read-only files | `src/bci_platform/data/datasets.py` → `RoundStore.write_round`, `ImmutableRoundError`, `RoundSequenceError`, `verify_chain` | exactly-once *effect* |
+        | reproducible measurement noise per `(oracle seed, round, seed)` | `src/bci_platform/data/generation.py` → `measure_candidates` | makes a retried materialisation identical |
+        | measurement log + journal, `max_task_retries=0` | `src/bci_platform/ray_runtime/tasks.py` → `ExperimentSimulator`, `start_experiment_simulator` | at-most-once physical execution, idempotent requests |
         | transient-error retries | `ray_runtime/tasks.py` → `_bootstrap_chunk` (`retry_exceptions=[TransientTaskError]`), `parallel_bootstrap_ci` | at-least-once, deterministic |
-        | model-cache actors with restarts | `src/merge_platform/inference/batch.py` → `PredictorActor` (`max_restarts=1, max_task_retries=1`) | at-least-once scoring (pure) |
-        | atomic checkpoints, `latest` pointer, RNG state | `src/merge_platform/training/checkpointing.py` → `save_checkpoint`, `resolve_checkpoint`; `trainer.py` → `Trainer.train(fail_at_epoch, resume_from)`, `SimulatedWorkerFailure` | resume = replay from durable state |
-        | Ray Train restarts from the last reported checkpoint | `src/merge_platform/training/distributed.py` → `train_distributed(max_failures=...)` | |
-        | versioned selections | `src/merge_platform/active_learning/loop.py` → `select_batch` (`selection_hash`), `write_selection` | idempotent rewrite |
-        | orchestration retries | Dagster retry policies on assets in `src/merge_platform/orchestration/` — safe *because* the sinks above are idempotent | |
+        | model-cache actors with restarts | `src/bci_platform/inference/batch.py` → `PredictorActor` (`max_restarts=1, max_task_retries=1`) | at-least-once scoring (pure) |
+        | atomic checkpoints, `latest` pointer, RNG state | `src/bci_platform/training/checkpointing.py` → `save_checkpoint`, `resolve_checkpoint`; `trainer.py` → `Trainer.train(fail_at_epoch, resume_from)`, `SimulatedWorkerFailure` | resume = replay from durable state |
+        | Ray Train restarts from the last reported checkpoint | `src/bci_platform/training/distributed.py` → `train_distributed(max_failures=...)` | |
+        | versioned selections | `src/bci_platform/active_learning/loop.py` → `select_batch` (`selection_hash`), `write_selection` | idempotent rewrite |
+        | orchestration retries | Dagster retry policies on assets in `src/bci_platform/orchestration/` — safe *because* the sinks above are idempotent | |
 
         ## Failure modes
 

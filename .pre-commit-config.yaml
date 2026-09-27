@@ -44,8 +44,8 @@ repos:
         require_serial: true
 
       - id: mypy
-        name: mypy (src/merge_platform)
-        # Configured via [tool.mypy] in pyproject.toml (packages = merge_platform);
+        name: mypy (src/bci_platform)
+        # Configured via [tool.mypy] in pyproject.toml (packages = bci_platform);
         # runs on the whole package, not just staged files, so cross-module
         # type errors are caught.
         entry: uv run mypy

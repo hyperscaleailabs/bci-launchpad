@@ -1,4 +1,4 @@
-# CLAUDE.md — merge-platform
+# CLAUDE.md — bci-platform
 
 Local-first research ML platform: Dagster (asset lineage) → Ray / Ray Train (placement) →
 PyTorch DDP (gradient sync) → MLflow (tracking + gated registry) → Ray Serve, closing the loop
@@ -11,7 +11,7 @@ Do not place business/scientific logic inside Dagster definitions.
 Do not place cluster-management logic inside model code.
 Keep orchestration adapters thin.
 
-## Package boundaries (`src/merge_platform/`)
+## Package boundaries (`src/bci_platform/`)
 
 | Package | May import | Must NOT import |
 |---|---|---|
@@ -55,7 +55,7 @@ uv run pytest tests/unit/test_evaluation.py -k gates        # single test
 - Config: typed pydantic `PlatformConfig` in `config.py`, loaded by `load_config(path|name|None)`
   (`$MERGE_CONFIG` or `configs/local.yaml`; YAML supports `extends:`). Add a field to the pydantic
   section *and* `configs/local.yaml`; never read raw YAML/dicts elsewhere.
-- Logging: `from merge_platform.logging import get_logger, bound_ids`;
+- Logging: `from bci_platform.logging import get_logger, bound_ids`;
   `log = get_logger(__name__)`; event names are dotted (`"training.epoch_end"`) with kwargs.
   Bind correlation ids `run_id, round_id, dataset_id, model_version, ray_job_id` via
   `bound_ids(...)` / `get_logger(name, **ids)`. No `print` in library code (scripts may print).

@@ -13,9 +13,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.config import PlatformConfig
-from merge_platform.inference import Predictor
-from merge_platform.training import TrainResult
+from bci_platform.config import PlatformConfig
+from bci_platform.inference import Predictor
+from bci_platform.training import TrainResult
 
 pytestmark = pytest.mark.integration
 
@@ -33,8 +33,8 @@ def _free_port() -> int:
 def server(
     trained: tuple[TrainResult, pd.DataFrame, pd.DataFrame],
 ) -> Iterator[tuple[str, Path]]:
-    from merge_platform.inference.serve import run
-    from merge_platform.ray_runtime.cluster import ensure_ray
+    from bci_platform.inference.serve import run
+    from bci_platform.ray_runtime.cluster import ensure_ray
 
     result, _, _ = trained
     started = not ray.is_initialized()

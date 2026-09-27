@@ -35,10 +35,10 @@ from typing import Any
 
 os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
-from merge_platform.config import REPO_ROOT, PlatformConfig, load_config, resolve_config_path
-from merge_platform.data import round_key
-from merge_platform.logging import get_logger
-from merge_platform.tracking.mlflow_client import (
+from bci_platform.config import REPO_ROOT, PlatformConfig, load_config, resolve_config_path
+from bci_platform.data import round_key
+from bci_platform.logging import get_logger
+from bci_platform.tracking.mlflow_client import (
     default_artifact_root,
     resolve_tracking_uri,
     sqlite_path,
@@ -193,10 +193,10 @@ def main(argv: list[str] | None = None) -> int:
     # Heavy imports after --fresh (Dagster opens its SQLite storage on import of the instance).
     from dagster import AssetKey, DagsterInstance
 
-    from merge_platform.orchestration import pipeline as P
-    from merge_platform.orchestration.definitions import build_definitions
-    from merge_platform.orchestration.jobs import run_bootstrap, run_round
-    from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
+    from bci_platform.orchestration import pipeline as P
+    from bci_platform.orchestration.definitions import build_definitions
+    from bci_platform.orchestration.jobs import run_bootstrap, run_round
+    from bci_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
 
     defs = build_definitions(
         config_path=str(cfg_path), ray_address=args.ray_address, num_workers=args.workers

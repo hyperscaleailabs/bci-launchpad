@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from merge_platform.config import PlatformConfig, load_config
-from merge_platform.hashing import hash_config, hash_dataframe, hash_file
+from bci_platform.config import PlatformConfig, load_config
+from bci_platform.hashing import hash_config, hash_dataframe, hash_file
 
 
 @pytest.mark.parametrize("name", ["local", "distributed", "gpu"])
