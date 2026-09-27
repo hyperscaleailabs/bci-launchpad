@@ -437,8 +437,8 @@ cells = [
 
         ## 9 · Evaluation gating in the repository
 
-        `evaluate(predictor, eval_frame, baseline_predictions, cfg)` computes metrics in standardized
-        units (training statistics from the checkpoint), a bootstrap CI for RMSE, a paired comparison
+        `evaluate(predictor, eval_frame, baseline_predictions, cfg, target_scale=...)` computes metrics in
+        standardized units, a bootstrap CI for RMSE, a paired comparison
         against the baseline, MC-dropout NLL/coverage, per-round slices, and a `GateDecision` from
         `check_gates`:
 
@@ -449,16 +449,27 @@ cells = [
         ```
 
         A model that fails stays available for research but is not promoted (`tracking.registry.ModelRegistry.promote_if_passed`).
+
+        **Whose standard deviation?** "Standardized" needs a yardstick, and it must belong to the
+        *evaluation data*, not to the candidate: if each candidate were standardized with its own training
+        statistics, B (whose clipped targets have a smaller std) would be judged on a different scale than
+        A, and `max_rmse` would mean something different for every candidate. The pipeline therefore
+        passes a `TargetScale` built from the training split of the round's dataset, identical for the
+        candidate and the baseline, and records it in `metrics.json` (`standardization`) and `report.md`.
+        Here the yardstick is the clean development data.
         """
     ),
     code(
         r"""
-        # Candidate B vs incumbent A, both scored on the clean test set.
-        # (The absolute bar is relaxed from 0.35 to 0.40 for this small-data demo; note that "standardized"
-        #  uses the *candidate's* training statistics -- B's clipped targets have a smaller std.)
-        gate_cfg = cfg.with_overrides(**{"evaluation.max_rmse": 0.40})
+        # Candidate B vs incumbent A, both scored on the clean test set, in the units of ONE dataset-owned
+        # scale (the clean development data) -- not B's own (clipped, narrower) training statistics.
+        from merge_platform.evaluation import TargetScale
+
+        scale = TargetScale.from_targets(dev["response"], source="clean development data (rows 0-2999)")
+        gate_cfg = cfg
         result = evaluate(model_B, test, baseline_predictions=pA, cfg=gate_cfg,
-                          baseline_name="incumbent model A")
+                          baseline_name="incumbent model A", target_scale=scale)
+        print("standardization:", result.target_scale)
         print("gate passed:", result.gate.passed)
         for r in result.gate.reasons:
             print("  -", r)

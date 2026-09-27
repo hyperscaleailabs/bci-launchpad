@@ -51,9 +51,9 @@ cells = [
     |---|---|
     | run identity | MLflow `run_id` (+ correlation ids in logs: `run_id`, `round_id`, `dataset_id`, `ray_job_id`) |
     | code version | `hashing.git_sha()` (`+dirty` suffix if the tree has uncommitted changes) |
-    | config | `hashing.hash_config(cfg)` over canonical sorted-key JSON |
+    | config | `cfg.config_hash()` = `hashing.hash_config` (canonical sorted-key JSON) of the *scientific* sections only |
     | dataset version | `RoundStore.dataset_hash(round)` — manifest hash chaining all earlier rounds |
-    | randomness | `cfg.seed` + RNG state stored in every checkpoint |
+    | randomness | `cfg.seed` + every rank's RNG state stored in every checkpoint |
     | artifact | `training.checkpointing.checkpoint_hash` (SHA-256 of `model.pt`) |
     | model lineage | registry version tags `run_id`, `checkpoint_hash`, `lifecycle` |
     """),
@@ -117,8 +117,10 @@ cells = [
     from merge_platform.hashing import git_sha, hash_config
     from merge_platform.tracking import environment_metadata
 
-    print("config hash         :", hash_config(cfg)[:16])
-    print("  + epochs changed  :", hash_config(cfg.with_overrides(**{"training.epochs": 7}))[:16])
+    print("config hash         :", cfg.config_hash()[:16])
+    print("  + epochs changed  :", cfg.with_overrides(**{"training.epochs": 7}).config_hash()[:16])
+    print("  + data dir moved  :", cfg.with_overrides(**{"paths.data_dir": "/elsewhere"}).config_hash()[:16])
+    print("  hashed sections   :", sorted(cfg.scientific_dump()))
     print("  key order ignored :", hash_config({"a": 1, "b": 2}) == hash_config({"b": 2, "a": 1}))
     print("git sha             :", git_sha())
     for k, v in environment_metadata().items():
@@ -130,10 +132,11 @@ cells = [
     * If `git_sha` ends in `+dirty`, the working tree had uncommitted changes: the SHA does
       **not** identify the code that ran. Production training should refuse dirty trees or
       log the diff as an artifact.
-    * `hash_config` covers the *whole* `PlatformConfig`, including `paths` (here a temp dir).
-      Moving the data directory changes the config hash without changing the science —
-      a deliberate simplicity/precision trade-off to be aware of when comparing hashes
-      across machines.
+    * `config_hash` covers only what determines the science (`seed`, `data`, `model`,
+      `training`, `evaluation`, `active_learning` and the number of DDP workers, which sets
+      the global batch). `paths`, `tracking`, `serve` and placement details are excluded, so
+      moving the data directory (here a temp dir) or pointing at another MLflow server does
+      not change it; the full config is still logged as the `config.json` artifact.
 
     ### Randomness
     The `Trainer` seeds Python/NumPy/PyTorch (`training.config.seed_everything`), enables
@@ -213,7 +216,9 @@ cells = [
     we have is the **registry version** and the tracking store. Reproduction procedure:
 
     1. registry version → `run_id` (version tag);
-    2. run → `config.json` artifact → `PlatformConfig`; verify `hash_config` == `config_hash` tag;
+    2. run → `config.json` artifact → `PlatformConfig`; verify `cfg.config_hash()` == `config_hash`
+       tag (the hash covers only the *scientific* sections — `PlatformConfig.scientific_dump()` —
+       so moving the data dir or switching the MLflow URI does not count as drift);
     3. run → `round_id` + `dataset_hash` tags → rebuild the training frame from the immutable
        round store and verify its hash;
     4. compare `git_sha` and library versions with the current environment (warn on mismatch);
@@ -229,7 +234,7 @@ cells = [
 
     # (2) config
     cfg_repro = PlatformConfig.model_validate(json.loads((tracker.run_artifact_dir(src_run.info.run_id) / "config.json").read_text()))
-    assert hash_config(cfg_repro) == tags["config_hash"], "config drift"
+    assert cfg_repro.config_hash() == tags["config_hash"], "config drift"
     # (3) data
     round_id = int(tags["round_id"])
     assert store.dataset_hash(round_id) == tags["dataset_hash"], "dataset drift"
@@ -338,8 +343,8 @@ cells = [
     2. Write `reproduce(version) -> dict` that performs §4 end-to-end and returns a report (config/data/code/env checks,
        checkpoint-hash match, max prediction diff). Make it *fail* when the round store's hash chain is broken
        (`RoundStore.verify_chain`).
-    3. Change `hash_config` usage so that `paths` are excluded from the hashed config (hash `cfg.model_dump(exclude={"paths"})`).
-       What else in the config is operational rather than scientific (tracking URI? serve port?) and should arguably be excluded?
+    3. `PlatformConfig.scientific_dump()` keeps `distributed.num_workers` but drops `distributed.use_gpu`. Argue both
+       choices. Is `training.device` scientific (CPU vs CUDA kernels give different bits) or operational?
     """),
     code(r"""
     shutil.rmtree(WORK, ignore_errors=True)

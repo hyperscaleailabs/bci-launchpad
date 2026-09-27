@@ -38,7 +38,9 @@ adds the Ray-specific glue:
 * **Recovery**: at start-up each worker asks ``ray.train.get_checkpoint()``.
   After a failure Ray restarts the worker group and hands back the latest
   persisted checkpoint; the Trainer resumes from it (model, optimizer,
-  epoch, history, RNG state), so the resumed run continues deterministically.
+  epoch, history and *every rank's own* RNG state), so the recovered run ends
+  with parameters bit-identical to an uninterrupted run with the same number
+  of workers (``tests/integration/test_failure_recovery.py``).
 * **Observability**: every log line carries ``rank``, ``world_size``,
   ``pid``, ``run_id``, ``round_id``, ``dataset_id`` and ``ray_job_id``.
   At the end the ranks ``all_gather`` their pid/host/parameter digest; the

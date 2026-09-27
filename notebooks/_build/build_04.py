@@ -227,8 +227,8 @@ cells = [
        continue with a missing rank);
     2. re-reserves resources and starts *new* worker processes;
     3. hands them the latest persisted checkpoint through `ray.train.get_checkpoint()`;
-    4. `Trainer.load_checkpoint` restores model, optimizer, epoch, history and RNG state,
-       and training continues at epoch 3.
+    4. `Trainer.load_checkpoint` restores model, optimizer, epoch, history and **each
+       rank's own** RNG state, and training continues at epoch 3.
     """),
     code(r"""
     t0 = time.perf_counter()
@@ -252,22 +252,26 @@ cells = [
     print("params_in_sync after recovery:", rinfo["params_in_sync"])
     same = [h1["val_rmse"] == h2["val_rmse"] for h1, h2 in zip(base.history, rec.history)]
     print("per-epoch val_rmse bit-identical to the uninterrupted run:", same)
+    assert all(same) and float(np.abs(p_base - p_rec).max()) == 0.0, "DDP resume should be bit-exact"
     """),
     md(r"""
     Recovery worked mechanically — new processes, resumed at epoch 3 from the persisted
-    epoch-2 checkpoint, all 4 epochs in the history, replicas in sync — and epochs 1–2 are
-    identical to the uninterrupted run. But in this run epochs 3–4 are **not bit-identical**,
-    and the final predictions differ slightly. Why?
+    epoch-2 checkpoint, all 4 epochs in the history, replicas in sync — **and exactly**:
+    every epoch's `val_rmse` is bit-identical to the uninterrupted run and the final
+    predictions match to the last bit (difference `0.0`).
 
-    The checkpoint is written by rank 0 and carries **rank 0's RNG state**. On resume,
-    `Trainer.load_checkpoint` restores that state on rank 0, while ranks > 0 re-seed their
-    dropout stream with `seed + 7919·(rank+1) + epoch` — a valid, deterministic stream, but
-    not the one rank 1 would have continued with. Rank 1's dropout masks after the restart
-    therefore differ, its gradients differ, and (through the all-reduce) so does the model.
-    The single-process `Trainer` *does* resume bit-exactly, because there is only one RNG
-    stream and it is in the checkpoint. Exact DDP resumption would require checkpointing
-    **every rank's** RNG state (e.g. `all_gather` them into rank 0's payload); once the
-    `Trainer` does that, the check above prints `True` for every epoch.
+    That is not automatic. Besides model/optimizer state, each rank carries its own RNG
+    stream: rank r's dropout masks (and the `DataLoader`'s base seed) come from rank r's
+    torch generator, seeded differently per rank. The data order needs no saved state
+    (`DistributedSampler.set_epoch` makes it a pure function of `(seed, epoch)`), but the
+    RNG streams do. So `Trainer.save_checkpoint` `all_gather`s **every rank's** RNG state
+    into rank 0's payload (`rng_states[rank]`), and on resume each rank restores *its own*.
+    An earlier version saved only rank 0's state and re-seeded ranks > 0; rank 1's dropout
+    masks then diverged after the restart, its gradients differed, and — through the
+    all-reduce — so did the model: recovery "worked" but was not reproducible.
+    (Resuming with a *different* world size cannot be exact — the data shards change — so
+    the `Trainer` falls back to a deterministic re-seed and logs
+    `training.resume_not_bit_exact`.)
 
     Lesson: "deterministic" and "bit-reproducible after failure" are different claims;
     test the second one explicitly by comparing against an uninterrupted run, as done here.
@@ -283,8 +287,9 @@ cells = [
     * **Elasticity.** DDP's world size is fixed for the lifetime of a process group. Changing
       the number of workers means tearing the group down and re-forming it — i.e. a restart
       from a checkpoint. The Trainer resumes fine with a different world size, but the
-      effective batch size changes (notebook 02), so the continued run is no longer
-      bit-comparable. Growing/shrinking on the fly is possible (Ray Train supports a
+      effective batch size changes (notebook 02) and there is no saved RNG stream for new
+      ranks, so the continued run is no longer bit-comparable (it warns
+      `training.resume_not_bit_exact`). Growing/shrinking on the fly is possible (Ray Train supports a
       min/max worker range in newer APIs; torchrun has `--nnodes=min:max`), but always at a
       re-rendezvous boundary.
     * **Data movement.** Here the dataset is a few hundred rows, so `ray.put` once is the

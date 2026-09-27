@@ -464,6 +464,16 @@ cells = [
     off for expensive, reusable state (large models, GPU contexts, DB connections) and
     long-lived services (Ray Serve, notebook 08).
 
+    The `core_worker ... has constructor arguments in the object store and max_restarts > 0`
+    line above is Ray warning about `ScoringActor.remote(ckpt_ref)`: on a restart Ray re-runs
+    `__init__` with the *same* ObjectRef, but it does not pin constructor refs for that
+    (ray-project/ray#53727). Here `ckpt_ref` stays alive in the notebook's globals, so a
+    restart would still work. The repository's `PredictorActor` avoids the issue: its
+    constructor takes only scalars and every `predict_shard` call carries `[ckpt_ref]` (a
+    nested ref, not resolved per call); the actor loads the model once on first use, and a
+    retried call brings the ref with it. `ExperimentSimulator` reads its candidate catalogue
+    from a parquet path instead.
+
     Because MC-dropout seeds are attached to the **shard** (not to the worker), both
     implementations give identical numbers regardless of which process scored which shard
     — a requirement for retries to be safe. The repository's production version is

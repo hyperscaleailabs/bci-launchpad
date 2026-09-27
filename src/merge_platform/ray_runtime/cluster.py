@@ -10,6 +10,7 @@ otherwise start a local cluster.
 
 from __future__ import annotations
 
+import contextlib
 import os
 from typing import Any
 
@@ -32,8 +33,33 @@ _RUNTIME_ENV: dict[str, Any] = {
         "RAY_TRAIN_HEALTH_CHECK_INTERVAL_S": os.environ.get(
             "RAY_TRAIN_HEALTH_CHECK_INTERVAL_S", "0.2"
         ),
-    }
+    },
+    "worker_process_setup_hook": "merge_platform.ray_runtime.cluster.pin_worker_to_own_cluster",
 }
+
+
+def pin_worker_to_own_cluster() -> None:
+    """``worker_process_setup_hook``: point ``RAY_ADDRESS`` at the worker's *own* cluster.
+
+    Ray Train's ``PlacementGroupCleaner`` actor polls the State API with no
+    address, which auto-discovers GCS servers on the machine. With more than
+    one local Ray instance running (parallel notebooks / test sessions /
+    `make` targets) discovery raises ``ConnectionError: Found multiple active
+    Ray instances`` inside the cleaner's monitor thread, which then dies with
+    a traceback forwarded to the driver after *every* Ray Train run (and
+    stops guarding the placement group). Exporting the worker's own GCS
+    address makes discovery unambiguous. Runs in every worker process of the
+    job (runtime envs are inherited by child tasks/actors, including Ray
+    Train's controller and its detached cleaner).
+
+    (Separately, with ``include_dashboard=False`` — as in the tests — the State
+    API itself is absent, so the cleaner logs "Failed to query Ray Train
+    Controller actor state ... Continuing to monitor" a few times per run.
+    That is harmless: on a normal exit the controller removes its placement
+    group itself; the cleaner only matters if the controller is killed.)
+    """
+    with contextlib.suppress(Exception):  # never break worker start-up over this
+        os.environ["RAY_ADDRESS"] = ray.get_runtime_context().gcs_address
 
 
 def _disable_uv_run_hook() -> None:

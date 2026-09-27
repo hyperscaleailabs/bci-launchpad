@@ -35,7 +35,7 @@ from merge_platform.data import (
     make_oracle,
     train_val_split,
 )
-from merge_platform.evaluation import evaluate
+from merge_platform.evaluation import TargetScale, evaluate
 from merge_platform.inference import Predictor
 from merge_platform.logging import bind_ids, get_logger
 from merge_platform.ray_runtime.cluster import ensure_ray, shutdown_ray
@@ -173,8 +173,14 @@ def main(argv: list[str] | None = None) -> int:
             }
             if args.register:
                 registry = ModelRegistry(tracker=tracker)
-                _, val = train_val_split(
+                train, val = train_val_split(
                     frame, cfg.training.val_fraction, cfg.seed, cfg.training.val_strategy
+                )
+                # dataset-owned yardstick for standardized metrics / the max_rmse gate
+                scale = TargetScale.from_targets(
+                    train["response"],
+                    source=f"training split of rounds 000-{round_id:03d} "
+                    f"[dataset {dataset_id[:12]}]",
                 )
                 predictor = Predictor.from_checkpoint(result.checkpoint_path)
                 prod = registry.production_version()
@@ -187,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
                     baseline,
                     cfg,
                     baseline_name=f"production_v{prod.version}" if prod else None,
+                    seed=cfg.seed,
+                    target_scale=scale,
                 )
                 tracker.log_evaluation(
                     evaluation, paths.reports_dir / f"round_{round_id:03d}" / run_id

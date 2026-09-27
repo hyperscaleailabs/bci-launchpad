@@ -23,9 +23,19 @@ Distributed semantics when ``torch.distributed.is_initialized()``:
 * logs carry ``rank``/``world_size``; per-epoch logs are emitted by rank 0.
 
 Determinism: all RNGs are seeded, ``torch.use_deterministic_algorithms`` is
-enabled (``warn_only``), the shuffle generator is re-seeded from
-``(seed, epoch)`` each epoch and the full RNG state is checkpointed, so a run
-resumed from epoch k reproduces the uninterrupted run exactly (same world size).
+enabled (``warn_only``) and the data order is a pure function of
+``(seed, epoch)`` (``DistributedSampler.set_epoch`` / a ``RandomSampler``
+generator re-seeded every epoch), so it needs no checkpointed state. What
+*does* carry state from epoch to epoch is each rank's global RNG stream —
+the CPU (and CUDA) torch generator drives the per-rank dropout masks and the
+``DataLoader`` base seed, and Python/NumPy are captured for completeness.
+Every rank's RNG state is ``all_gather``-ed into the checkpoint
+(``rng_states[rank]``) and each rank restores *its own* state on resume, so a
+run resumed from epoch k reproduces the uninterrupted run bit-for-bit — for
+the same world size (tested under torch.distributed and under Ray Train
+failure/recovery). Resuming with a *different* world size cannot be exact
+(the data shards change anyway): ranks without a saved state fall back to a
+deterministic re-seed from ``(seed, rank, epoch)`` and a warning is logged.
 
 This module intentionally does not import ray, dagster, or mlflow.
 """
@@ -299,7 +309,19 @@ class Trainer:
         }
 
     # ------------------------------------------------------------------ checkpoints
-    def _payload(self, metrics: dict[str, float]) -> dict[str, Any]:
+    def _gather_rng_states(self) -> list[dict[str, Any]]:
+        """Every rank's RNG state, in rank order (collective: call on all ranks)."""
+        mine = get_rng_state()
+        if not self.is_distributed:
+            return [mine]
+        states: list[Any] = [None] * self.world_size
+        # pickled CPU tensors; the checkpoint is tiny compared to the model state
+        dist.all_gather_object(states, mine)
+        return states
+
+    def _payload(
+        self, metrics: dict[str, float], rng_states: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         assert self.optimizer is not None and self.normalizer is not None
         base = self.base_model
         spec = base.spec() if isinstance(base, ResidualMLP) else {"class": type(base).__name__}
@@ -311,7 +333,9 @@ class Trainer:
             "history": [dict(h) for h in self.history],
             "normalizer": self.normalizer.to_dict(),
             "config": self.cfg.model_dump(mode="json"),
-            "rng_state": get_rng_state(),
+            # rank 0's state (single-process format) + one state per rank
+            "rng_state": rng_states[0],
+            "rng_states": rng_states,
             "model_spec": spec,
             "seed": self.cfg.seed,
             "dataset_hash": self.dataset_hash,
@@ -321,11 +345,15 @@ class Trainer:
     def save_checkpoint(
         self, checkpoint_dir: str | Path, metrics: dict[str, float] | None = None
     ) -> Path:
-        """Rank 0 writes ``checkpoint_dir/epoch_XXXX``; all ranks sync and get the path."""
+        """Rank 0 writes ``checkpoint_dir/epoch_XXXX``; all ranks sync and get the path.
+
+        Collective: every rank contributes its RNG state (``all_gather``).
+        """
         root = Path(checkpoint_dir)
         path = root / ckpt.epoch_dir_name(self.epoch)
+        rng_states = self._gather_rng_states()
         if self.is_main:
-            path = ckpt.save_checkpoint(root, self._payload(metrics or {}))
+            path = ckpt.save_checkpoint(root, self._payload(metrics or {}, rng_states))
         if self.is_distributed:
             dist.barrier()
         self._last_ckpt = path
@@ -350,11 +378,30 @@ class Trainer:
         self.history = [dict(h) for h in payload.get("history", [])]
         self.normalizer = Normalizer.from_dict(payload["normalizer"])
         self._apply_normalizer()
-        set_rng_state(payload["rng_state"])
-        if self.rank != 0:
-            # rank-specific dropout stream (rank 0's state was saved)
-            torch.manual_seed(self.cfg.seed + 7919 * (self.rank + 1) + self.epoch)
+        self._restore_rng(payload)
         return payload
+
+    def _restore_rng(self, payload: dict[str, Any]) -> None:
+        """Restore this rank's own RNG stream (exact resume for the same world size)."""
+        states: list[dict[str, Any]] | None = payload.get("rng_states")
+        if states is None and "rng_state" in payload:  # checkpoints before per-rank states
+            states = [payload["rng_state"]] if int(payload.get("world_size") or 1) == 1 else None
+        if states is not None and len(states) == self.world_size:
+            set_rng_state(states[self.rank])
+            return
+        # World size changed (or an old multi-rank checkpoint with only rank 0's
+        # state): a bit-exact continuation is impossible anyway because the
+        # DistributedSampler shards differ. Fall back to a deterministic,
+        # rank-distinct stream derived from (seed, rank, epoch).
+        seed_everything(self.cfg.seed + 7919 * (self.rank + 1) + self.epoch)
+        if self.is_main:
+            self.log.warning(
+                "training.resume_not_bit_exact",
+                reason="world size changed" if states is not None else "no per-rank RNG states",
+                checkpoint_world_size=payload.get("world_size"),
+                world_size=self.world_size,
+                epoch=self.epoch,
+            )
 
     # ------------------------------------------------------------------ main loop
     def train(

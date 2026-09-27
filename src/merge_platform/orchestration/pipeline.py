@@ -52,8 +52,9 @@ from merge_platform.data import (
     train_val_split,
     validate_frame,
 )
+from merge_platform.data.datasets import POOL_FILE
 from merge_platform.evaluation import evaluate
-from merge_platform.evaluation.evaluator import EvaluationResult
+from merge_platform.evaluation.evaluator import EvaluationResult, TargetScale
 from merge_platform.inference.predictor import Predictor
 from merge_platform.logging import get_logger
 from merge_platform.tracking import ModelRegistry, Tracker
@@ -224,7 +225,7 @@ class ComputeBackend(Protocol):
     def run_experiments(
         self,
         cfg: PlatformConfig,
-        pool: pd.DataFrame,
+        pool: pd.DataFrame | Path,
         *,
         round_id: int,
         candidate_ids: list[str],
@@ -245,6 +246,9 @@ class RayCompute:
     num_workers: int | None = None
     n_inference_actors: int = 2
     bootstrap_tasks: int = 4
+    # caller-side retries of the idempotent lab measurement (see run_experiments)
+    measure_attempts: int = 3
+    measure_retry_backoff_s: float = 0.5
 
     def ensure(self) -> dict[str, Any]:
         from merge_platform.ray_runtime.cluster import ensure_ray
@@ -307,7 +311,7 @@ class RayCompute:
     def run_experiments(
         self,
         cfg: PlatformConfig,
-        pool: pd.DataFrame,
+        pool: pd.DataFrame | Path,
         *,
         round_id: int,
         candidate_ids: list[str],
@@ -318,19 +322,56 @@ class RayCompute:
         The actor journals every measurement to ``journal_path``; asking again
         for ``(round_id, candidate_id)`` returns the recorded value instead of
         running the experiment a second time.
+
+        **Caller-side retry.** The actor has ``max_restarts=1`` but
+        ``max_task_retries=0``: Ray restarts a crashed lab process but never
+        re-sends the in-flight ``measure`` itself, so the first call after a
+        crash fails with ``ActorUnavailableError`` (restarting) or
+        ``ActorDiedError`` (restarts exhausted). Retrying *here* is the safe,
+        deliberate exception to "never retry an experiment", because
+        ``measure`` is idempotent per ``(round_id, candidate_id)`` through the
+        journal: whatever was measured and journaled before the crash is
+        replayed, never re-measured, and only candidates with no recorded
+        result are measured (for the first recorded time). On
+        ``ActorUnavailableError`` we retry the same handle; on
+        ``ActorDiedError`` we start a fresh simulator, which reloads the same
+        journal. (A crash between the oracle call and the journal append loses
+        that unrecorded result; the simulator's seeded oracle then reproduces
+        it — a real lab would need a two-phase "reserve, then record" protocol.)
         """
+        import time
+
         import ray
+        from ray.exceptions import ActorDiedError, ActorUnavailableError
 
         from merge_platform.ray_runtime.tasks import start_experiment_simulator
 
         self.ensure()
         actor = start_experiment_simulator(cfg, pool, journal_path=journal_path)
+        restarts: list[str] = []
         try:
-            frame = ray.get(actor.measure.remote(round_id, candidate_ids, cfg.seed))
-            stats = ray.get(actor.stats.remote())
+            for attempt in range(1, self.measure_attempts + 1):
+                try:
+                    frame = ray.get(actor.measure.remote(round_id, candidate_ids, cfg.seed))
+                    stats = ray.get(actor.stats.remote())
+                    break
+                except (ActorUnavailableError, ActorDiedError) as exc:
+                    if attempt == self.measure_attempts:
+                        raise
+                    restarts.append(type(exc).__name__)
+                    log.warning(
+                        "pipeline.lab_unavailable_retrying",
+                        round_id=round_id,
+                        attempt=attempt,
+                        error=type(exc).__name__,
+                    )
+                    time.sleep(self.measure_retry_backoff_s * attempt)
+                    if isinstance(exc, ActorDiedError):
+                        ray.kill(actor)
+                        actor = start_experiment_simulator(cfg, pool, journal_path=journal_path)
         finally:
             ray.kill(actor)
-        return frame, dict(stats)
+        return frame, {**stats, "lab_retries": restarts}
 
 
 # --------------------------------------------------------------------------- helpers
@@ -512,9 +553,23 @@ def evaluate_checkpoint(
     Baseline: the current production model's predictions on the *same* rows
     (paired comparison), unless the candidate *is* the production model
     (same MLflow run); otherwise a train-mean predictor.
+
+    Standardized metrics (and the ``max_rmse`` gate) use the target mean/std of
+    the *training split of this round's dataset* — a property of the data,
+    identical for the candidate and the baseline, not the candidate's own
+    checkpoint statistics.
     """
     frame = store.training_frame(round_id)
-    _, val = train_val_split(frame, cfg.training.val_fraction, cfg.seed, cfg.training.val_strategy)
+    train, val = train_val_split(
+        frame, cfg.training.val_fraction, cfg.seed, cfg.training.val_strategy
+    )
+    scale = TargetScale.from_targets(
+        train["response"],
+        source=(
+            f"training split of union(round_000..{round_key(round_id)}) "
+            f"[dataset {store.dataset_hash(round_id)[:12]}]"
+        ),
+    )
     predictor = Predictor.from_checkpoint(checkpoint_path)
     baseline, baseline_name = None, None
     prod = registry.production_version()
@@ -526,7 +581,15 @@ def evaluate_checkpoint(
         if not same:
             baseline = Predictor.from_checkpoint(prod.checkpoint_path).predict(val)
             baseline_name = f"production_v{prod.version}"
-    return evaluate(predictor, val, baseline, cfg, baseline_name=baseline_name, seed=cfg.seed)
+    return evaluate(
+        predictor,
+        val,
+        baseline,
+        cfg,
+        baseline_name=baseline_name,
+        seed=cfg.seed,
+        target_scale=scale,
+    )
 
 
 def evaluate_model(
@@ -752,7 +815,11 @@ def run_experiments(
         )
     journal = cfg.paths.resolved().data_dir / LAB_JOURNAL
     frame, stats = compute.run_experiments(
-        cfg, store.read_pool(), round_id=nxt, candidate_ids=ids, journal_path=journal
+        cfg,
+        store.pool_dir / POOL_FILE,  # durable catalogue: a restarted lab re-reads it
+        round_id=nxt,
+        candidate_ids=ids,
+        journal_path=journal,
     )
     store.write_round(
         nxt,

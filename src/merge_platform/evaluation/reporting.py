@@ -39,6 +39,18 @@ def _fmt(v: Any, digits: int = 4) -> str:
     return str(v)
 
 
+def _scale_sentence(scale: dict[str, Any]) -> str:
+    if not scale:
+        return "Standardized units: n/a."
+    n = f", n={scale['n']}" if scale.get("n") else ""
+    return (
+        f"Standardized units: z = (y - {_fmt(scale['y_mean'])}) / {_fmt(scale['y_std'])}, "
+        f"from the {scale['source']}{n}. The same scale is applied to the candidate and "
+        "the baseline, so `max_rmse` is a fixed threshold for every model scored on this "
+        "dataset (it does not depend on the candidate's own training statistics)."
+    )
+
+
 def render_markdown(result: EvaluationResult) -> str:
     m = result.metrics
     c = result.comparison
@@ -66,8 +78,7 @@ def render_markdown(result: EvaluationResult) -> str:
         "",
         "## Metrics",
         "",
-        f"Evaluated on {int(m['n_eval'])} examples. Standardized units use the training-set "
-        "target mean/std stored in the checkpoint.",
+        f"Evaluated on {int(m['n_eval'])} examples. {_scale_sentence(result.target_scale)}",
         "",
         "| metric | value |",
         "|---|---|",
@@ -130,6 +141,8 @@ def write_evaluation(result: EvaluationResult, out_dir: Path) -> dict[str, Path]
                 "slices": result.slices,
                 "baseline": result.baseline_name,
                 "model_info": result.model_info,
+                # the yardstick of every *_std-unit metric and of the max_rmse gate
+                "standardization": result.target_scale,
             },
         ),
         "comparison": write_json(

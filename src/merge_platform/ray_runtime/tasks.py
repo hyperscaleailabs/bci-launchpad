@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,7 @@ from merge_platform.data.datasets import records_to_frame
 from merge_platform.data.generation import make_oracle, measure_candidates
 from merge_platform.data.schema import ExperimentRecord
 from merge_platform.evaluation import metrics as M
+from merge_platform.hashing import hash_dataframe
 from merge_platform.logging import get_logger
 
 log = get_logger(__name__)
@@ -202,21 +204,32 @@ class ExperimentSimulator:
 
     ``max_restarts=1`` restarts a crashed actor, but ``max_task_retries=0``
     means Ray will *not* automatically re-send an in-flight ``measure`` call
-    to the restarted actor; the caller must decide. With ``journal_path`` the
-    log is appended to a JSONL file and reloaded in ``__init__`` so a restart
-    does not forget which experiments were already run.
+    to the restarted actor; the caller must decide (the first call after a
+    crash raises ``ActorUnavailableError``/``ActorDiedError``). With
+    ``journal_path`` the log is appended to a JSONL file and reloaded in
+    ``__init__`` so a restart does not forget which experiments were already run.
+
+    Restart-safe construction: ``__init__`` runs again on every restart with
+    the *same* arguments, so they must still be valid then. The candidate
+    catalogue is therefore passed as a **parquet path** on durable storage
+    (the RoundStore's ``candidate_pool/pool.parquet`` in the closed loop), not
+    as an ObjectRef — Ray does not pin constructor ObjectRefs for restarts
+    (ray-project/ray#53727), and the lab reads its catalogue from the same
+    storage it journals to. A DataFrame is accepted for direct, in-process use.
     """
 
     def __init__(
         self,
         cfg: dict[str, Any] | PlatformConfig,
-        pool: pd.DataFrame,
+        pool: str | os.PathLike[str] | pd.DataFrame,
         *,
         journal_path: str | None = None,
     ) -> None:
         self.cfg = cfg if isinstance(cfg, PlatformConfig) else PlatformConfig.model_validate(cfg)
         self.oracle = make_oracle(self.cfg)
-        self.pool = pool.set_index("candidate_id", drop=False)
+        self.pool_path = None if isinstance(pool, pd.DataFrame) else str(pool)
+        frame = pool if isinstance(pool, pd.DataFrame) else pd.read_parquet(pool)
+        self.pool = frame.set_index("candidate_id", drop=False)
         self.journal = Path(journal_path) if journal_path else None
         self._log: dict[tuple[int, str], dict[str, Any]] = {}
         self.n_physical_measurements = 0
@@ -277,29 +290,57 @@ class ExperimentSimulator:
             "n_cache_hits": self.n_cache_hits,
             "n_logged": len(self._log),
             "pid": os.getpid(),
+            "pool_path": self.pool_path,
         }
 
     def pid(self) -> int:
         return os.getpid()
 
 
+def durable_pool_file(pool: pd.DataFrame, directory: str | os.PathLike[str] | None = None) -> Path:
+    """Write ``pool`` once to a content-addressed parquet file and return its path.
+
+    ``directory`` defaults to ``$TMPDIR/merge_platform_lab``. Identical pools
+    map to the same file, so repeated calls cost one hash, not one write.
+    """
+    root = Path(directory) if directory else Path(tempfile.gettempdir()) / "merge_platform_lab"
+    path = root / f"candidate_pool_{hash_dataframe(pool)[:16]}.parquet"
+    if not path.exists():
+        root.mkdir(parents=True, exist_ok=True)
+        tmp = root / f".{path.name}.{os.getpid()}.tmp"
+        pool.to_parquet(tmp, index=False)
+        tmp.replace(path)
+    return path
+
+
 def start_experiment_simulator(
     cfg: PlatformConfig,
-    pool: pd.DataFrame,
+    pool: pd.DataFrame | str | os.PathLike[str],
     *,
     journal_path: str | os.PathLike[str] | None = None,
     name: str | None = None,
 ) -> Any:
-    """Create an :class:`ExperimentSimulator` actor (pool passed via the object store).
+    """Create an :class:`ExperimentSimulator` actor.
+
+    ``pool`` is the candidate catalogue: a parquet path (preferred — e.g. the
+    RoundStore's pool file) or a DataFrame, which is written once to a
+    content-addressed parquet file next to the journal (or in the temp dir).
+    Either way the actor's constructor receives only small, by-value
+    arguments, so ``max_restarts`` can always rebuild it (no ObjectRefs that
+    could go out of scope).
 
     With ``name`` the actor is registered (``get_if_exists``) so every
     component in the namespace talks to the same "lab".
     """
+    if isinstance(pool, pd.DataFrame):
+        pool_path = durable_pool_file(pool, Path(journal_path).parent if journal_path else None)
+    else:
+        pool_path = Path(pool)
     opts: dict[str, Any] = {}
     if name:
         opts = {"name": name, "get_if_exists": True}
     return ExperimentSimulator.options(**opts).remote(  # type: ignore[attr-defined]
         cfg.model_dump(mode="json"),
-        ray.put(pool),
+        str(pool_path),
         journal_path=str(journal_path) if journal_path else None,
     )

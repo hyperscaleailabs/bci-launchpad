@@ -81,8 +81,12 @@ class SurrogatePyfunc(PythonModel):  # type: ignore[misc]
     def load_context(self, context: Any) -> None:
         self.predictor = Predictor.from_checkpoint(context.artifacts[CHECKPOINT_ARTIFACT])
 
-    def predict(self, context, model_input, params=None):  # type: ignore[no-untyped-def]
-        # (no type hints on purpose: MLflow would otherwise try to derive a schema from them)
+    def predict(
+        self, context: Any, model_input: pd.DataFrame, params: dict[str, Any] | None = None
+    ) -> pd.DataFrame:
+        # ``pd.DataFrame`` is a type hint MLflow accepts without deriving a schema
+        # from it (the explicit signature logged in ``register`` stays authoritative);
+        # with no hint at all MLflow warns on every import/log.
         frame = model_input if isinstance(model_input, pd.DataFrame) else pd.DataFrame(model_input)
         if params and params.get("uncertainty"):
             mu, sd = self.predictor.predict_with_uncertainty(frame)
@@ -99,17 +103,18 @@ def _gate_fields(gate: Any) -> tuple[bool, list[str]]:
     return bool(gate.passed), [str(r) for r in gate.reasons]
 
 
-def _signature(ckpt_file: Path) -> Any:
-    """Input: feature columns; output: prediction (+std); param ``uncertainty``."""
+def _signature(ckpt_file: Path) -> tuple[Any, pd.DataFrame]:
+    """``(signature, input_example)``: feature columns in; prediction (+std) out; param ``uncertainty``."""
     predictor = Predictor.from_checkpoint(ckpt_file)
     example = pd.DataFrame(
         np.zeros((2, len(predictor.feature_columns))), columns=predictor.feature_columns
     )
-    return infer_signature(
+    signature = infer_signature(
         example,
         pd.DataFrame({"prediction": predictor.predict(example)}),
         params={"uncertainty": False},
     )
+    return signature, example
 
 
 class ModelRegistry:
@@ -142,6 +147,7 @@ class ModelRegistry:
         reopen = active is None or active.info.run_id != run_id
         if reopen:
             mlflow.start_run(run_id=run_id, nested=active is not None)
+        signature, input_example = _signature(ckpt_file)
         try:
             with tempfile.TemporaryDirectory() as staging:
                 # stage under a fixed name: MLflow keeps the source basename
@@ -154,7 +160,8 @@ class ModelRegistry:
                     # explicit requirements: skips MLflow's slow requirement inference
                     pip_requirements=["torch", "numpy", "pandas", "merge-platform"],
                     registered_model_name=self.name,
-                    signature=_signature(ckpt_file),
+                    signature=signature,
+                    input_example=input_example,
                 )
         finally:
             if reopen:
@@ -237,16 +244,35 @@ class ModelRegistry:
         return "production"
 
     # ------------------------------------------------------------------ lookup
+    def aliases(self) -> dict[str, str]:
+        """``alias -> version`` for the registered model (empty if not registered yet)."""
+        try:
+            rm = self.client.get_registered_model(self.name)
+        except mlflow.exceptions.MlflowException:
+            return {}
+        return {str(a): str(v) for a, v in (rm.aliases or {}).items()}
+
     def list_versions(self) -> list[dict[str, Any]]:
+        """All versions with lifecycle tag, gate result and aliases, oldest first.
+
+        Aliases come from the *registered model* (one call), not from
+        ``search_model_versions``: MLflow's SQL store does not populate
+        ``ModelVersion.aliases`` in search results (only ``get_model_version``
+        does), so relying on it would report ``aliases: []`` for every version.
+        """
+        by_version: dict[str, list[str]] = {}
+        for alias, v in sorted(self.aliases().items()):
+            by_version.setdefault(v, []).append(alias)
         out = []
         for mv in self.client.search_model_versions(f"name='{self.name}'"):
+            version = str(mv.version)
             out.append(
                 {
-                    "version": str(mv.version),
+                    "version": version,
                     "run_id": mv.run_id,
                     "lifecycle": mv.tags.get(LIFECYCLE_TAG),
                     "gate_passed": mv.tags.get("gate_passed"),
-                    "aliases": list(getattr(mv, "aliases", []) or []),
+                    "aliases": by_version.get(version, []),
                 }
             )
         return sorted(out, key=lambda d: int(d["version"]))

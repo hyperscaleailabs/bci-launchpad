@@ -58,7 +58,15 @@ code_location_name = "merge_platform"
 line-length = 100
 target-version = "py312"
 src = ["src", "tests", "scripts"]
+# notebooks/ (the generated .ipynb files *and* their notebooks/_build/*.py
+# generators) is deliberately out of ruff's scope: the build scripts are prose
+# (markdown with σ, ×, en dashes -> RUF001/002/003) plus notebook code held in
+# string literals ruff cannot see; they are validated by *executing* them
+# (`build_XX.py --execute`, `make notebooks`). force-exclude keeps explicit-path
+# runs (editors, pre-commit, `ruff check notebooks/...`) consistent with
+# `make lint` / CI (`ruff check .`).
 extend-exclude = ["notebooks"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]

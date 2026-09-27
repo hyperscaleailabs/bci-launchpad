@@ -143,10 +143,24 @@ def test_ddp_two_workers(tmp_path: Path) -> None:
     assert pred.model_info()["trained_world_size"] == 2
 
 
-def test_ddp_fail_and_resume(tmp_path: Path) -> None:
-    r0, r1 = _run(tmp_path, fail_at=2)
+def test_ddp_fail_and_resume_is_bit_exact(tmp_path: Path) -> None:
+    (tmp_path / "resumed").mkdir()
+    (tmp_path / "straight").mkdir()
+    r0, r1 = _run(tmp_path / "resumed", fail_at=2)
     assert r0["failed_at"] == r1["failed_at"] == 2
     assert r0["epochs"] == r1["epochs"] == 4
     assert r0["resumed_from"].endswith("epoch_0002")
     assert r0["params"] == r1["params"]
     assert r0["metrics"] == r1["metrics"]
+    # every rank restored its *own* RNG stream (dropout masks), so the resumed
+    # run is bit-identical to an uninterrupted run with the same world size
+    u0, _ = _run(tmp_path / "straight", fail_at=None)
+    assert r0["params"] == u0["params"]
+    assert r0["metrics"] == u0["metrics"]
+    payload = torch.load(
+        tmp_path / "resumed" / "ckpt" / "epoch_0002" / "model.pt", weights_only=True
+    )
+    assert len(payload["rng_states"]) == WORLD_SIZE
+    assert not torch.equal(payload["rng_states"][0]["torch"], payload["rng_states"][1]["torch"]), (
+        "ranks should have distinct dropout RNG streams"
+    )

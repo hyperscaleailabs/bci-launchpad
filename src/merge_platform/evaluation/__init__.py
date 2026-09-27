@@ -4,6 +4,7 @@ from merge_platform.evaluation.comparison import ComparisonResult, paired_compar
 from merge_platform.evaluation.evaluator import (
     EvaluationResult,
     GateDecision,
+    TargetScale,
     check_gates,
     evaluate,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "ComparisonResult",
     "EvaluationResult",
     "GateDecision",
+    "TargetScale",
     "bootstrap_ci",
     "check_gates",
     "coverage",

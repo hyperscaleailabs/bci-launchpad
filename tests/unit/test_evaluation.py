@@ -126,3 +126,34 @@ def test_predictor_uncertainty_and_info(trained) -> None:
     assert len(info["checkpoint_hash"]) == 64
     with pytest.raises(ValueError):
         p.predict(np.zeros((2, 3)))
+
+
+def test_standardization_scale_belongs_to_the_dataset(trained, tmp_path: Path) -> None:
+    """Gate units come from the evaluation dataset's scale, not the candidate's checkpoint."""
+    from merge_platform.evaluation import TargetScale
+
+    result, tr, va = trained
+    pred = Predictor.from_checkpoint(result.checkpoint_path)
+    cfg = EvaluationConfig(bootstrap_samples=50, mc_samples=3)
+
+    fallback = evaluate(pred, va, None, cfg)
+    assert fallback.target_scale["source"].startswith("candidate checkpoint")
+    assert fallback.target_scale["y_std"] == pytest.approx(pred.normalizer.y_std)
+
+    scale = TargetScale.from_targets(tr["response"], source="training split of test dataset")
+    ev = evaluate(pred, va, None, cfg, target_scale=scale)
+    assert ev.target_scale == scale.to_dict() and ev.target_scale["n"] == len(tr)
+    # standardized RMSE = raw RMSE / dataset std, whatever the candidate's own stats are
+    assert ev.metrics["rmse"] == pytest.approx(ev.metrics["rmse_raw"] / scale.y_std)
+    wider = TargetScale(scale.y_mean, 2 * scale.y_std, "x2")
+    ev2 = evaluate(pred, va, None, cfg, target_scale=wider)
+    assert ev2.metrics["rmse"] == pytest.approx(ev.metrics["rmse"] / 2)
+    # the mean baseline uses the scale's (training) mean, so improvement is scale-free
+    assert ev2.metrics["improvement_vs_baseline"] == pytest.approx(
+        ev.metrics["improvement_vs_baseline"]
+    )
+
+    paths = ev.write(tmp_path / "eval")
+    written = json.loads(paths["metrics"].read_text())
+    assert written["standardization"]["source"] == "training split of test dataset"
+    assert "training split of test dataset" in paths["report"].read_text()

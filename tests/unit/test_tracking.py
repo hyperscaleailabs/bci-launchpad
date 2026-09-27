@@ -48,6 +48,7 @@ def test_tracker_logs_params_metrics_tags(
     assert tags["t"] == "v" and tags["round_id"] == "0"
     for key in ("dataset_hash", "config_hash", "checkpoint_hash", "torch_version", "ray_version"):
         assert tags[key], key
+    assert tags["config_hash"] == cfg.config_hash()
     assert run.inputs.dataset_inputs, "dataset should be logged as a run input"
     history = tracker.client.get_metric_history(run_id, "val_rmse")
     assert len(history) == result.epochs_completed
@@ -55,6 +56,7 @@ def test_tracker_logs_params_metrics_tags(
     art = tracker.run_artifact_dir(run_id)
     assert art is not None and str(art).startswith(str(tmp_path / "mlartifacts"))
     assert (art / "checkpoint" / "model.pt").exists()
+    assert (art / "config.json").exists() and (art / "config_scientific.json").exists()
 
 
 def test_registry_lifecycle(
@@ -95,6 +97,13 @@ def test_registry_lifecycle(
     assert registry.promote_if_passed(v3, {"passed": True, "reasons": ["PASS"]}) == "production"
     assert registry.stage(v2) == "archived" and registry.stage(v3) == "production"
     assert registry.production_version().version == v3  # type: ignore[union-attr]
+
+    # aliases are reported per version (MLflow's search API alone returns none on SQLite)
+    listed = {d["version"]: d for d in registry.list_versions()}
+    assert listed[v3]["aliases"] == ["candidate", "production", "validated"]
+    assert listed[v1]["aliases"] == [] and listed[v2]["aliases"] == []
+    assert [listed[v]["lifecycle"] for v in (v1, v2, v3)] == ["candidate", "archived", "production"]
+    assert registry.aliases()["production"] == v3
 
     predictor = registry.load_production_predictor()
     ref = Predictor.from_checkpoint(result.checkpoint_path)

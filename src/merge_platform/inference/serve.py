@@ -59,6 +59,7 @@ never fails when the env vars are absent; only accessing ``app`` does.
 
 import asyncio
 import collections
+import logging
 import os
 import signal
 import threading
@@ -448,6 +449,37 @@ def __getattr__(name: str) -> Any:
 
 
 # ----------------------------------------------------------------------------- runners
+class _DropServeReconnectNotice(logging.Filter):
+    """Drop Serve's "Connecting to existing Serve app ..." INFO line.
+
+    ``serve.run`` always calls Serve's internal ``serve_start`` (without HTTP
+    options), which logs that notice whenever Serve is already up — i.e. on
+    *every* ``serve.run`` after our explicit ``serve.start`` with a custom
+    port, and on every rolling update. It carries no information here:
+    ``run`` only calls ``serve.start`` when Serve is not running yet and
+    checks the running HTTP address itself. Only that exact message is
+    dropped; genuine option-mismatch warnings still come through.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "Connecting to existing Serve app" not in record.getMessage()
+
+
+_serve_logger = logging.getLogger("ray.serve")
+if not any(isinstance(f, _DropServeReconnectNotice) for f in _serve_logger.filters):
+    _serve_logger.addFilter(_DropServeReconnectNotice())
+
+
+def _serve_http_config() -> Any | None:
+    """HTTP options of the Serve instance in this Ray cluster, or None if none is running."""
+    try:  # private but stable since Ray 2.0; serve.status() would *raise* instead
+        from ray.serve.context import _get_global_client
+    except ImportError:  # pragma: no cover - future Ray layouts: behave as "not running"
+        return None
+    client = _get_global_client(raise_if_no_controller_running=False)
+    return client.http_config if client is not None else None
+
+
 def run(
     checkpoint_path: str | os.PathLike[str],
     model_version: str,
@@ -471,7 +503,17 @@ def run(
     cfg = cfg or load_config()
     ensure_ray()
     port = int(port or cfg.serve.port)
-    serve.start(http_options={"host": host, "port": port})
+    running = _serve_http_config()
+    if running is None:
+        serve.start(http_options={"host": host, "port": port})
+    elif (running.host, running.port) != (host, port):
+        # HTTP options are fixed for the lifetime of a Serve instance.
+        log.warning(
+            "serve.already_running_on_other_address",
+            requested=f"{host}:{port}",
+            running=f"{running.host}:{running.port}",
+        )
+        host, port = running.host, running.port
     app = build_app(checkpoint_path, model_version, cfg, **build_kwargs)
     handle = serve.run(app, name=name, route_prefix="/")
     log.info("serve.running", url=f"http://{host}:{port}", model_version=model_version, app=name)

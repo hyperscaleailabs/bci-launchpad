@@ -4,9 +4,12 @@ A checkpoint is a directory containing ``model.pt`` (a torch-serialized dict
 loadable with ``weights_only=True``)::
 
     {format_version, model_state, optimizer_state, epoch, metrics, history,
-     normalizer, config, rng_state, model_spec, seed, dataset_hash, world_size}
+     normalizer, config, rng_state, rng_states, model_spec, seed, dataset_hash,
+     world_size}
 
-plus a human-readable ``meta.json``. Under a training ``checkpoint_dir`` the
+plus a human-readable ``meta.json``. ``rng_state`` is rank 0's RNG snapshot;
+``rng_states`` holds one snapshot per rank (index = rank) so a distributed
+resume restores every rank's own stream. Under a training ``checkpoint_dir`` the
 layout is ``epoch_0003/`` per saved epoch and a ``latest`` text file naming
 the newest complete checkpoint. Writes are atomic (temp dir + rename) so a
 crash mid-write never leaves a half checkpoint behind.

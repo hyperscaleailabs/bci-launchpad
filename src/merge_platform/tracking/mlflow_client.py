@@ -21,9 +21,15 @@ What a training run records (``log_train_result``):
 * params: hyperparameters, seed, world size, dataset id, sizes;
 * metrics: the per-epoch history (``step=epoch``) + duration;
 * tags: ``dataset_hash``, ``config_hash``, ``git_sha``, ``checkpoint_hash`` and
-  environment metadata (python/torch/ray/mlflow versions, device, platform);
+  environment metadata (python/torch/ray/mlflow versions, device, platform).
+  ``config_hash`` covers only the *scientific* config
+  (``PlatformConfig.scientific_dump``: seed/data/model/training/evaluation/
+  active_learning + number of DDP workers), so relocating the data dir or
+  switching the tracking URI does not change it;
 * inputs: the training dataset via ``mlflow.data`` (schema + digest, not rows);
-* artifacts: the final checkpoint directory, ``config.json``, ``train_result.json``.
+* artifacts: the final checkpoint directory, ``config.json`` (the full config,
+  environment sections included), ``config_scientific.json`` (what was hashed),
+  ``train_result.json``.
 """
 
 from __future__ import annotations
@@ -322,7 +328,8 @@ class Tracker:
                 **{f"final_{k}": v for k, v in result.metrics.items()},
             }
         )
-        config_hash = hash_config(cfg) if cfg is not None else hash_config(result.hyperparams)
+        # scientific config only: moving data dirs / the MLflow URI must not change it
+        config_hash = cfg.config_hash() if cfg is not None else hash_config(result.hyperparams)
         info = dict(result.device_info)
         distributed = info.pop("distributed", None)
         tags: dict[str, Any] = {
@@ -343,7 +350,9 @@ class Tracker:
         if dataset_frame is not None and result.dataset_hash:
             self.log_dataset(dataset_frame, name=dataset_name, digest=result.dataset_hash)
         if cfg is not None:
+            # the full config (incl. paths/tracking/serve) stays available as an artifact
             self.log_dict(cfg.model_dump(mode="json"), "config.json")
+            self.log_dict(cfg.scientific_dump(), "config_scientific.json")
         self.log_dict(result.to_dict(), "train_result.json")
         if log_checkpoint and Path(result.checkpoint_path).exists():
             self.log_artifacts(result.checkpoint_path, artifact_path="checkpoint")

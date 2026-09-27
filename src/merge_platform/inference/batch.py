@@ -7,8 +7,8 @@ Ray concepts demonstrated (handoff §7):
   node NumPy arrays are read zero-copy from shared memory, across nodes Ray
   transfers them once per node. Nothing is re-pickled per shard.
 * **Actors as a model cache** — `PredictorActor` deserializes the checkpoint
-  in ``__init__`` and then serves many shards. Model loading (the expensive,
-  stateful part) is paid once per actor, not once per task.
+  on its first call and then serves many shards. Model loading (the
+  expensive, stateful part) is paid once per actor, not once per task.
 * **Resource requests** — ``num_cpus`` per actor is derived from the cluster's
   available CPUs; ``num_gpus`` is requested only when CUDA is available.
   (Ray on Apple Silicon advertises a Metal ``GPU`` resource that PyTorch-CUDA
@@ -19,10 +19,17 @@ Ray concepts demonstrated (handoff §7):
   bounds object-store memory for results and keeps actor mailboxes short
   (instead of enqueueing all shards up front).
 * **Failure behaviour** — actors are created with ``max_restarts=1`` and calls
-  with ``max_task_retries=1``: a crashed actor process is restarted (model
-  reloaded from the object store) and the shard re-run. Scoring is a pure
-  function of (checkpoint, shard, seed), so retrying is safe — unlike
-  re-running a physical experiment.
+  with ``max_task_retries=1``: a crashed actor process is restarted and the
+  shard re-run. Scoring is a pure function of (checkpoint, shard, seed), so
+  retrying is safe — unlike re-running a physical experiment.
+* **Restart-safe inputs** — the actor constructor takes only small scalars.
+  The checkpoint travels with every ``predict_shard`` call as
+  ``[ObjectRef]`` (a ref *nested* in a list, so Ray does not resolve/copy it
+  per call) and the actor fetches + deserializes it once, on first use. A
+  restarted actor simply reloads it from the ref carried by the retried call:
+  Ray keeps the arguments of a pending/retryable task alive, whereas an
+  ObjectRef passed to the *constructor* of a restartable actor is not pinned
+  for restarts (Ray warns about exactly that, ray-project/ray#53727).
 
 Determinism: MC-dropout masks are seeded per *shard* (``seed`` + shard index),
 so results are independent of which actor scored which shard and of
@@ -120,26 +127,49 @@ class PredictorActor:
     """Stateful model-cache worker: load the checkpoint once, score many shards.
 
     Wrapped with ``ray.remote`` at call time (see `_actor_class`) so importing
-    this module never requires Ray.
+    this module never requires Ray. ``model_ref`` arguments are
+    ``[ObjectRef(checkpoint bytes)]``; the model is loaded from the first one
+    seen (and re-loaded only if a different checkpoint ref arrives).
     """
 
-    def __init__(self, checkpoint_bytes: bytes, num_threads: int = 1, device: str = "cpu") -> None:
+    def __init__(self, num_threads: int = 1, device: str = "cpu") -> None:
         torch.set_num_threads(max(1, num_threads))
-        # Materialize the checkpoint locally from the object store: works on a
-        # multi-node cluster without a shared filesystem.
-        self._tmp = tempfile.TemporaryDirectory(prefix="merge_predictor_")
-        path = Path(self._tmp.name) / MODEL_FILE
-        path.write_bytes(checkpoint_bytes)
-        t0 = time.perf_counter()
-        self.predictor = Predictor.from_checkpoint(path, device=device)
-        self.load_s = time.perf_counter() - t0
+        self.device = device
+        self.predictor: Predictor | None = None
+        self._model_key: str | None = None
+        self._tmp: tempfile.TemporaryDirectory[str] | None = None
+        self.load_s = 0.0
         self.shards_served = 0
         self.rows_served = 0
 
+    def _model(self, model_ref: list[Any]) -> Predictor:
+        import ray
+
+        (ref,) = model_ref
+        key = ref.hex()
+        if self.predictor is None or key != self._model_key:
+            t0 = time.perf_counter()
+            # Materialize the checkpoint locally from the object store: works on a
+            # multi-node cluster without a shared filesystem.
+            self._tmp = tempfile.TemporaryDirectory(prefix="merge_predictor_")
+            path = Path(self._tmp.name) / MODEL_FILE
+            path.write_bytes(ray.get(ref))
+            self.predictor = Predictor.from_checkpoint(path, device=self.device)
+            self._model_key = key
+            self.load_s = time.perf_counter() - t0
+        return self.predictor
+
     def predict_shard(
-        self, X: np.ndarray, start: int, stop: int, mc_samples: int, seed: int, shard_index: int
+        self,
+        model_ref: list[Any],
+        X: np.ndarray,
+        start: int,
+        stop: int,
+        mc_samples: int,
+        seed: int,
+        shard_index: int,
     ) -> tuple[int, np.ndarray, np.ndarray]:
-        mean, std = _score_shard(self.predictor, X[start:stop], mc_samples, seed)
+        mean, std = _score_shard(self._model(model_ref), X[start:stop], mc_samples, seed)
         self.shards_served += 1
         self.rows_served += stop - start
         return shard_index, mean, std
@@ -150,11 +180,13 @@ class PredictorActor:
             "load_s": self.load_s,
             "shards_served": self.shards_served,
             "rows_served": self.rows_served,
-            "checkpoint_hash": self.predictor.model_info().get("checkpoint_hash"),
+            "checkpoint_hash": (
+                self.predictor.model_info().get("checkpoint_hash") if self.predictor else None
+            ),
         }
 
-    def default_mc_samples(self) -> int:
-        return int(self.predictor.mc_samples)
+    def default_mc_samples(self, model_ref: list[Any]) -> int:
+        return int(self._model(model_ref).mc_samples)
 
 
 def actor_resources(n_actors: int, available_cpus: float | None = None) -> dict[str, float]:
@@ -217,17 +249,19 @@ def predict_pool(
     n_act = max(1, min(n_actors, len(bounds)))
     res = actor_resources(n_act)
     use_cuda = "num_gpus" in res
-    # object store: put the large inputs once, pass refs everywhere
-    ckpt_ref = ray.put(ckpt_file.read_bytes())
+    # object store: put the large inputs once, pass refs everywhere. The
+    # checkpoint ref is nested in a list: it rides along with every call (so a
+    # restarted actor can reload it) without being resolved per call.
+    model_ref = [ray.put(ckpt_file.read_bytes())]
     X_ref = ray.put(X)
     Actor = _actor_class()
     actors = [
         Actor.options(**res).remote(  # type: ignore[attr-defined]
-            ckpt_ref, int(res["num_cpus"]), "cuda" if use_cuda else "cpu"
+            int(res["num_cpus"]), "cuda" if use_cuda else "cpu"
         )
         for _ in range(n_act)
     ]
-    n_mc = int(mc_samples or ray.get(actors[0].default_mc_samples.remote()))
+    n_mc = int(mc_samples or ray.get(actors[0].default_mc_samples.remote(model_ref)))
     limit = max(1, max_in_flight or 2 * n_act)
     log.info(
         "batch_inference.start",
@@ -247,7 +281,9 @@ def predict_pool(
                 idx, m, s = ray.get(done[0])
                 results[idx] = (m, s)
             actor = actors[i % n_act]  # round-robin; seeds don't depend on this
-            in_flight.append(actor.predict_shard.remote(X_ref, a, b, n_mc, shard_seed(seed, i), i))
+            in_flight.append(
+                actor.predict_shard.remote(model_ref, X_ref, a, b, n_mc, shard_seed(seed, i), i)
+            )
         for idx, m, s in ray.get(in_flight):
             results[idx] = (m, s)
         stats: dict[str, Any] = {

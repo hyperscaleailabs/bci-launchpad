@@ -67,3 +67,38 @@ def test_hash_config_and_file(tmp_path: Path) -> None:
     f.write_bytes(np.arange(10).tobytes())
     assert hash_file(f) == hash_file(f)
     assert len(hash_file(tmp_path)) == 64
+
+
+def test_config_hash_ignores_environment_sections(tmp_path: Path) -> None:
+    base = PlatformConfig.for_tests(tmp_path / "a")
+    moved = PlatformConfig.for_tests(tmp_path / "somewhere" / "else")  # other data dir + MLflow db
+    assert base.paths != moved.paths and base.tracking != moved.tracking
+    env_only = base.with_overrides(
+        **{
+            "serve.port": 9999,
+            "tracking.experiment": "other",
+            "distributed.use_gpu": True,
+            "distributed.cpus_per_worker": 4,
+        }
+    )
+    assert base.config_hash() == moved.config_hash() == env_only.config_hash()
+    # ...but anything that changes the science changes the hash
+    for key, value in {
+        "seed": 1,
+        "data.pool_size": 123,
+        "model.dropout": 0.2,
+        "training.lr": 0.01,
+        "evaluation.max_rmse": 0.5,
+        "active_learning.beta": 2.0,
+        "distributed.num_workers": 3,  # global batch size changes under DDP
+    }.items():
+        assert base.with_overrides(**{key: value}).config_hash() != base.config_hash(), key
+    assert set(base.scientific_dump()) == {
+        "seed",
+        "data",
+        "model",
+        "training",
+        "evaluation",
+        "active_learning",
+        "distributed",
+    }

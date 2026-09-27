@@ -130,3 +130,33 @@ def test_gaussian_nll_training(tmp_path: Path, datasets, session_cfg) -> None:
     assert p.has_variance_head
     mu, sd = p.predict_with_uncertainty(datasets[1].X, 5, include_aleatoric=True)
     assert (sd > 0).all() and np.isfinite(mu).all()
+
+
+def test_resume_with_different_world_size_reseeds_deterministically(
+    tmp_path: Path, datasets, session_cfg, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A checkpoint from 2 ranks resumed by 1 process: not bit-exact, but deterministic + warned."""
+    cfg = session_cfg.with_overrides(**{"training.epochs": 4})
+    ckpt_dir = tmp_path / "ckpt"
+    with pytest.raises(SimulatedWorkerFailure):
+        Trainer(cfg).train(*_fresh(datasets), checkpoint_dir=ckpt_dir, fail_at_epoch=2)
+    model_pt = ckpt_dir / "epoch_0002" / "model.pt"
+    payload = torch.load(model_pt, weights_only=True)
+    assert len(payload["rng_states"]) == 1  # single process: one state
+    payload["rng_states"] = [payload["rng_states"][0]] * 2  # pretend world_size=2
+    payload["world_size"] = 2
+    torch.save(payload, model_pt)
+
+    warnings: list[dict] = []
+
+    def run() -> TrainResult:
+        trainer = Trainer(cfg)
+        monkeypatch.setattr(
+            trainer.log, "warning", lambda event, **kw: warnings.append({"event": event, **kw})
+        )
+        return trainer.train(*_fresh(datasets), checkpoint_dir=tmp_path / "r", resume_from=model_pt)
+
+    a, b = run(), run()
+    assert a.history == b.history
+    assert [w["event"] for w in warnings] == ["training.resume_not_bit_exact"] * 2
+    assert warnings[0]["checkpoint_world_size"] == 2 and warnings[0]["world_size"] == 1

@@ -1,13 +1,20 @@
 """Model evaluation: metrics with CIs, paired baseline comparison, promotion gates.
 
-Metrics used for gating are computed on *standardized* responses, using the
-target mean/std stored in the candidate model's checkpoint (i.e. training
-statistics), so ``max_rmse`` is a scale-free threshold.
+Metrics used for gating are computed on *standardized* responses
+``z = (y - mean) / std``. The yardstick is a `TargetScale` that belongs to
+the **evaluation dataset**, not to the model being evaluated: callers pass the
+target mean/std of the training split of the dataset the evaluation belongs to
+(the closed loop uses the training split of ``union(round_000..round_r)``).
+Candidate and baseline are therefore scored in identical units, and
+``max_rmse`` means the same thing for every candidate evaluated on a round,
+whatever statistics that candidate happened to be trained with. Only when no
+scale is given does `evaluate` fall back to the candidate checkpoint's own
+normalizer (recorded as such in ``metrics.json`` / ``report.md``).
 
 Baseline: pass the incumbent (production) model's predictions on the same
 ``eval_frame`` as ``baseline_predictions``. Without an incumbent, the baseline
-is a mean predictor using the *training* target mean (no evaluation-set
-leakage).
+is a mean predictor using the *training* target mean of the scale (no
+evaluation-set leakage).
 """
 
 from __future__ import annotations
@@ -45,6 +52,32 @@ class PredictorLike(Protocol):
     def model_info(self) -> dict[str, Any]: ...
 
 
+@dataclass(frozen=True)
+class TargetScale:
+    """The fixed yardstick for standardized metrics (``z = (y - y_mean) / y_std``)."""
+
+    y_mean: float
+    y_std: float
+    source: str
+    n: int | None = None
+
+    @classmethod
+    def from_targets(cls, y: ArrayLike, source: str) -> TargetScale:
+        """Mean/std (population, like `Normalizer.fit`) of training targets."""
+        ya = np.asarray(y, dtype=np.float64).reshape(-1)
+        if ya.size == 0:
+            raise ValueError("cannot derive a target scale from an empty array")
+        std = float(ya.std())
+        return cls(float(ya.mean()), std if std > 1e-8 else 1.0, source, int(ya.size))
+
+    @classmethod
+    def from_normalizer(cls, norm: Normalizer, source: str) -> TargetScale:
+        return cls(float(norm.y_mean), float(norm.y_std), source)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"y_mean": self.y_mean, "y_std": self.y_std, "source": self.source, "n": self.n}
+
+
 @dataclass
 class GateDecision:
     passed: bool
@@ -65,6 +98,7 @@ class EvaluationResult:
     baseline_name: str = "mean_predictor"
     model_info: dict[str, Any] = field(default_factory=dict)
     config: dict[str, Any] = field(default_factory=dict)
+    target_scale: dict[str, Any] = field(default_factory=dict)
 
     def write(self, out_dir: str | os.PathLike[str]) -> dict[str, Path]:
         """Write ``metrics.json``, ``report.md``, ``predictions.parquet``, ``comparison.json``."""
@@ -125,8 +159,14 @@ def evaluate(
     *,
     baseline_name: str | None = None,
     seed: int = 0,
+    target_scale: TargetScale | None = None,
 ) -> EvaluationResult:
-    """Evaluate ``predictor`` on ``eval_frame`` (needs feature columns + ``response``)."""
+    """Evaluate ``predictor`` on ``eval_frame`` (needs feature columns + ``response``).
+
+    ``target_scale``: the dataset's yardstick for standardized metrics (see the
+    module docstring). Pass it whenever several models are compared or gated on
+    the same data; ``None`` falls back to the candidate's checkpoint normalizer.
+    """
     ecfg = (
         cfg.evaluation
         if isinstance(cfg, PlatformConfig)
@@ -135,7 +175,9 @@ def evaluate(
     frame = eval_frame.reset_index(drop=True)
     if len(frame) == 0:
         raise ValueError("eval_frame is empty")
-    norm = predictor.normalizer
+    scale = target_scale or TargetScale.from_normalizer(
+        predictor.normalizer, source="candidate checkpoint normalizer (no dataset scale given)"
+    )
     y = frame["response"].to_numpy(dtype=np.float64)
     pred = predictor.predict(frame)
     mu_mc, sigma = predictor.predict_with_uncertainty(
@@ -144,7 +186,7 @@ def evaluate(
     _, sigma_epi = predictor.predict_with_uncertainty(frame, ecfg.mc_samples, seed=seed)
 
     if baseline_predictions is None:
-        base = np.full_like(y, norm.y_mean)
+        base = np.full_like(y, scale.y_mean)
         baseline_name = baseline_name or "mean_predictor(train_mean)"
     else:
         base = np.asarray(baseline_predictions, dtype=np.float64).reshape(-1)
@@ -153,13 +195,13 @@ def evaluate(
         baseline_name = baseline_name or "baseline_model"
 
     def z(v: NDArray[np.float64]) -> NDArray[np.float64]:
-        return (v - norm.y_mean) / norm.y_std
+        return (v - scale.y_mean) / scale.y_std
 
     ys, ps, bs = z(y), z(pred), z(base)
     rmse_pt, rmse_lo, rmse_hi = M.bootstrap_ci(M.rmse, ys, ps, n=ecfg.bootstrap_samples, seed=seed)
     comparison = paired_compare(ys, bs, ps, metric="rmse", n_boot=ecfg.bootstrap_samples, seed=seed)
     improvement = comparison.relative_improvement
-    sig_s = sigma / norm.y_std
+    sig_s = sigma / scale.y_std
 
     metrics: dict[str, float] = {
         "rmse": rmse_pt,
@@ -172,7 +214,7 @@ def evaluate(
         "nll": M.nll_gaussian(ys, z(mu_mc), sig_s),
         "coverage_95": M.coverage(ys, z(mu_mc), sig_s, z=1.96),
         "mean_predictive_std": float(np.mean(sig_s)),
-        "mean_epistemic_std": float(np.mean(sigma_epi / norm.y_std)),
+        "mean_epistemic_std": float(np.mean(sigma_epi / scale.y_std)),
         "baseline_rmse": comparison.a_value,
         "improvement_vs_baseline": improvement,
         "improvement_ci_lo": comparison.ci_lo / comparison.a_value if comparison.a_value else 0.0,
@@ -210,4 +252,5 @@ def evaluate(
         baseline_name=baseline_name,
         model_info=predictor.model_info(),
         config=ecfg.model_dump(mode="json"),
+        target_scale=scale.to_dict(),
     )

@@ -108,6 +108,18 @@ class ServeConfig(_Section):
     port: int = 8000
 
 
+# Sections that define the science (hashed into ``config_hash``); see
+# ``PlatformConfig.scientific_dump``.
+SCIENTIFIC_SECTIONS: tuple[str, ...] = (
+    "seed",
+    "data",
+    "model",
+    "training",
+    "evaluation",
+    "active_learning",
+)
+
+
 class PlatformConfig(_Section):
     seed: int = 0
     paths: PathsConfig = Field(default_factory=PathsConfig)
@@ -132,6 +144,27 @@ class PlatformConfig(_Section):
                 node = node[part]
             node[parts[-1]] = value
         return PlatformConfig.model_validate(data)
+
+    def scientific_dump(self) -> dict[str, Any]:
+        """The part of the config that determines *what* is computed.
+
+        Keeps ``seed``, ``data``, ``model``, ``training``, ``evaluation``,
+        ``active_learning`` and ``distributed.num_workers`` (the number of DDP
+        replicas sets the global batch size, so it changes the trained model).
+        Drops environment/placement details that do not change results:
+        ``paths`` (moving the data dir), ``tracking`` (MLflow URI/names),
+        ``serve`` and ``distributed.use_gpu/cpus_per_worker``.
+        """
+        full = self.model_dump(mode="json")
+        out = {k: full[k] for k in SCIENTIFIC_SECTIONS}
+        out["distributed"] = {"num_workers": full["distributed"]["num_workers"]}
+        return out
+
+    def config_hash(self) -> str:
+        """Stable hash of :meth:`scientific_dump` (the ``config_hash`` lineage tag)."""
+        from merge_platform.hashing import hash_config
+
+        return hash_config(self.scientific_dump())
 
     def to_flat_dict(self) -> dict[str, Any]:
         """Flattened ``section.key -> value`` mapping (handy for experiment tracking)."""

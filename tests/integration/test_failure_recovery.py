@@ -51,6 +51,16 @@ def test_worker_failure_resumes_from_checkpoint(ray_cluster: None, tmp_path: Pat
     assert info["params_in_sync"]
     Predictor.from_checkpoint(result.checkpoint_path)
 
+    # Recovery is exact: every rank restored its own RNG stream from the checkpoint,
+    # so the recovered run ends with the same parameters as an uninterrupted one.
+    straight = train_distributed(cfg, train_frame=frame, num_workers=2)
+    s_info = distributed_info(straight)
+    assert s_info["failures_recovered"] == 0
+    assert {w["param_digest"] for w in info["workers"]} == {
+        w["param_digest"] for w in s_info["workers"]
+    }
+    assert result.metrics == straight.metrics
+
 
 def test_failure_without_retries_surfaces(ray_cluster: None, tmp_path: Path) -> None:
     cfg = PlatformConfig.for_tests(tmp_path).with_overrides(**{"training.epochs": 3})
@@ -72,3 +82,45 @@ def test_experiment_retry_returns_recorded_measurement(ray_cluster: None, tmp_pa
     again: pd.DataFrame = ray.get(sim2.measure.remote(1, ids))
     pd.testing.assert_frame_equal(first, again)
     assert ray.get(sim2.stats.remote())["n_physical_measurements"] == 0
+
+
+def test_restartable_actors_take_no_object_store_constructor_args(
+    ray_cluster: None, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """Simulator + predictor actors are rebuilt from durable / per-call inputs after a crash."""
+    import time
+
+    from merge_platform.inference.batch import predict_pool, predict_pool_local
+    from merge_platform.training import Trainer
+
+    cfg = PlatformConfig.for_tests(tmp_path, **{"data.pool_size": 300, "training.epochs": 1})
+    pool = generate_candidate_pool(cfg)
+    journal = tmp_path / "lab_journal.jsonl"
+    sim = start_experiment_simulator(cfg, pool, journal_path=journal)
+    ids = pool["candidate_id"].iloc[:4].tolist()
+    first: pd.DataFrame = ray.get(sim.measure.remote(1, ids))
+    old_pid = ray.get(sim.pid.remote())
+    ray.kill(sim, no_restart=False)  # crash; Ray re-runs __init__ with the same (small) args
+    deadline = time.time() + 60
+    stats: dict = {"pid": old_pid}
+    while stats["pid"] == old_pid:  # ray.kill is asynchronous: wait for the new process
+        assert time.time() < deadline, "actor was not restarted"
+        try:
+            stats = ray.get(sim.stats.remote())
+        except ray.exceptions.RayActorError:
+            time.sleep(0.2)
+    assert stats["pool_path"].endswith(".parquet") and stats["n_logged"] == len(ids)
+    again: pd.DataFrame = ray.get(sim.measure.remote(1, ids))
+    pd.testing.assert_frame_equal(first, again)
+    assert ray.get(sim.stats.remote())["n_physical_measurements"] == 0
+    ray.kill(sim)
+
+    frame = records_to_frame(initial_observations(pool, make_oracle(cfg), 120, seed=0))
+    from merge_platform.data import ArrayDataset
+
+    ds = ArrayDataset.from_frame(frame, dataset_hash="t")
+    ckpt = Trainer(cfg).train(ds, None, checkpoint_dir=tmp_path / "ckpt").checkpoint_path
+    out = predict_pool(ckpt, pool, n_actors=2, shard_size=100, mc_samples=3, seed=1)
+    ref = predict_pool_local(ckpt, pool, shard_size=100, mc_samples=3, seed=1)
+    pd.testing.assert_frame_equal(out, ref)
+    assert "has constructor arguments in the object store" not in capfd.readouterr().err
